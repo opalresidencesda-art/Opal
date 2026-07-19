@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Portal Warga OPAL
 
-## Getting Started
+Portal operasional OPAL Residence: panduan native, pendataan warga dengan bukti privat, Kas terstruktur, tiga layanan surat siap-cetak, serta panel RT. Linktree dapat tetap hidup selama masa transisi, tetapi tidak lagi menjadi sumber utama layanan.
 
-First, run the development server:
+## Yang sudah native
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- `/panduan-harmonis`: panduan PDF dipindahkan menjadi halaman yang dapat ditautkan per bagian; nominal Pondok Tjandra aktif adalah Rp245.000 dan Kas OPAL Rp25.000.
+- `/pendataan-warga`: satu rumah per pengisian, dengan KTP/KK maksimum 10 MB per gambar ke Storage privat dan tanda-terima email tanpa data sensitif.
+- `/surat/pindah-rumah`, `/surat/domisili`, `/surat/belum-menikah`: alur ajukan, review, revisi/tolak, lalu PDF A4 bernomor. Tanda tangan dan stempel RT tetap manual setelah cetak.
+- `/kas`: ringkasan publik dan informasi rekening BCA Kas OPAL; riwayat per rumah hanya melalui `/rumah/[token]` yang dibuat RT.
+- `/petugas`, `/spesifikasi-rumah`, `/denah`: direktori kerja, spesifikasi, dan empat lembar denah asli yang sudah dipindahkan sebagai aset lokal.
+- `/admin`: antrean pendataan/surat, penerbitan, pengaturan nomor surat, Kas, token rumah, petugas, spesifikasi, denah, panduan, dan pengumuman.
+
+## Menjalankan lokal
+
+Di Windows PowerShell, gunakan `cmd /c` bila eksekusi `npm.ps1` diblokir:
+
+```powershell
+cmd /c npm install
+cmd /c npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka `http://localhost:3000`. Tanpa konfigurasi Supabase, halaman publik tetap dapat ditinjau, sedangkan mutasi data serta Admin akan terkunci.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Menyiapkan Supabase dan Admin
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Salin `.env.example` ke `.env.local`, lalu isi URL, publishable key, service-role key, dan email admin.
+2. Di Supabase SQL Editor, jalankan [schema.sql](supabase/schema.sql), kemudian [seed.sql](supabase/seed.sql).
+3. Masukkan email RT yang sama pada tabel admin:
 
-## Learn More
+   ```sql
+   insert into public.admin_users (email) values ('email-rt-anda@example.com');
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+4. Di Supabase Auth, masukkan URL berikut sebagai Redirect URLs:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```text
+   http://localhost:3000/auth/callback
+   https://domain-anda/auth/callback
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+5. Buka `/admin`, minta magic link, lalu isi Pengaturan Penerbitan Surat. Penerbitan tetap terkunci sampai semua identitas RT dan format nomor resmi disimpan.
 
-## Deploy on Vercel
+`SUPABASE_SERVICE_ROLE_KEY` hanya dipakai di server dan skrip impor. Jangan pernah memasukkannya ke variabel `NEXT_PUBLIC_*`, browser, atau Git.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Migrasi data lama
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Jalankan selalu ke proyek staging lebih dulu. Skrip tidak langsung mempublikasikan transaksi Kas; RT perlu merekonsiliasi jumlah baris dan total rupiah sebelum menandai ringkasan sebagai publik.
+
+```powershell
+# Periksa hasil normalisasi workbook tanpa menulis data.
+$env:OPAL_KAS_XLSX = 'C:\aman\Kas OPAL.xlsx'
+cmd /c npm run import:kas -- --dry-run
+
+# Jalankan impor idempoten setelah konfigurasi env lengkap.
+cmd /c npm run import:kas
+
+# Data Google Form + berkas identitas memakai manifest privat JSON, bukan Git.
+$env:OPAL_RESIDENT_MANIFEST = 'C:\aman\resident-manifest.json'
+cmd /c npm run import:residents
+```
+
+`scripts/import-resident-manifest.mjs` menerima JSON array berisi data rumah dan daftar path bukti lokal. File mentah Google Form/Drive tidak disimpan di repository. Sumber Google lama dipertahankan sampai RT menyetujui pemeriksaan parity.
+
+## Pemeriksaan
+
+```powershell
+cmd /c npm run test
+cmd /c npm run lint
+cmd /c npm run build
+```
+
+Sebelum rilis: uji pengiriman pendataan dengan data sintetis, akses token rumah, review dan penerbitan surat, unduh PDF, pembatasan akun non-admin, serta halaman mobile. Setelah itu arahkan masing-masing tombol Linktree ke halaman native yang setara.

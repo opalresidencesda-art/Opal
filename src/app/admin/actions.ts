@@ -1,0 +1,324 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { randomUUID } from "node:crypto";
+import { requireAdmin } from "@/lib/admin";
+import { renderOfficialDocument, type DocumentSettings } from "@/lib/documents";
+import { formatDocumentNumber } from "@/lib/document-number";
+import { sanitizeMarkdown } from "@/lib/markdown";
+import { createAccessToken, hashAccessToken } from "@/lib/security";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isAllowedAdminEmail, isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { residentSubmissionSchema } from "@/lib/validation";
+
+function textValue(formData: FormData, key: string, required = true) {
+  const value = formData.get(key)?.toString().trim() ?? "";
+  if (required && !value) throw new Error(`${key} wajib diisi.`);
+  return value;
+}
+
+function boolValue(formData: FormData, key: string) {
+  return formData.get(key) === "on";
+}
+
+function success(message: string) {
+  revalidatePath("/");
+  revalidatePath("/panduan-harmonis");
+  revalidatePath("/layanan");
+  revalidatePath("/kas");
+  revalidatePath("/admin");
+  redirect(`/admin?message=${encodeURIComponent(message)}`);
+}
+
+export async function requestMagicLink(formData: FormData) {
+  if (!isSupabaseConfigured() || !supabaseUrl || !supabasePublishableKey) redirect("/admin/login?reason=setup");
+  const email = textValue(formData, "email").toLowerCase();
+  if (!isAllowedAdminEmail(email)) redirect("/admin/login?reason=forbidden");
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/auth/callback` },
+  });
+  if (error) redirect("/admin/login?reason=error");
+  redirect("/admin/login?sent=1");
+}
+
+export async function saveFeeSchedule(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const label = textValue(formData, "label");
+  const amountRupiah = Number(textValue(formData, "amountRupiah"));
+  const effectiveFrom = textValue(formData, "effectiveFrom");
+  if (!Number.isInteger(amountRupiah) || amountRupiah < 1 || amountRupiah > 10_000_000) throw new Error("Nominal iuran tidak valid.");
+  const { error } = await supabase.rpc("activate_fee_schedule", {
+    p_label: label,
+    p_amount_rupiah: amountRupiah,
+    p_payment_method: textValue(formData, "paymentMethod"),
+    p_destination: textValue(formData, "destination", false),
+    p_description: textValue(formData, "description", false),
+    p_effective_from: effectiveFrom,
+  });
+  if (error) throw new Error("Iuran tidak dapat disimpan. Pastikan skema Supabase sudah diterapkan.");
+  success("Jadwal iuran baru telah aktif.");
+}
+
+export async function saveAnnouncement(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = textValue(formData, "id", false);
+  const payload = {
+    title: textValue(formData, "title"),
+    body: textValue(formData, "body"),
+    published_at: textValue(formData, "publishedAt"),
+    pinned: boolValue(formData, "pinned"),
+    published: boolValue(formData, "published"),
+  };
+  const query = id ? supabase.from("announcements").update(payload).eq("id", id) : supabase.from("announcements").insert(payload);
+  const { error } = await query;
+  if (error) throw new Error("Pengumuman tidak dapat disimpan.");
+  success("Pengumuman telah disimpan.");
+}
+
+export async function saveResource(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = textValue(formData, "id", false);
+  const category = textValue(formData, "category");
+  const validCategories = ["Keuangan", "Surat", "Data warga", "Fasilitas", "Rumah"];
+  if (!validCategories.includes(category)) throw new Error("Kategori layanan tidak valid.");
+  const sortOrder = Number(textValue(formData, "sortOrder"));
+  if (!Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Urutan layanan tidak valid.");
+  const payload = {
+    title: textValue(formData, "title"),
+    description: textValue(formData, "description"),
+    href: textValue(formData, "href"),
+    category,
+    requires_google_login: boolValue(formData, "requiresGoogleLogin"),
+    published: boolValue(formData, "published"),
+    sort_order: sortOrder,
+  };
+  const query = id ? supabase.from("resources").update(payload).eq("id", id) : supabase.from("resources").insert(payload);
+  const { error } = await query;
+  if (error) throw new Error("Tautan layanan tidak dapat disimpan.");
+  success("Tautan layanan telah disimpan.");
+}
+
+export async function saveGuideSection(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = textValue(formData, "id");
+  const sortOrder = Number(textValue(formData, "sortOrder"));
+  if (!Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Urutan panduan tidak valid.");
+  const { error } = await supabase.from("guide_sections").update({
+    title: textValue(formData, "title"),
+    summary: textValue(formData, "summary"),
+    body_markdown: sanitizeMarkdown(textValue(formData, "bodyMarkdown")),
+    sort_order: sortOrder,
+    published: boolValue(formData, "published"),
+  }).eq("id", id);
+  if (error) throw new Error("Bagian panduan tidak dapat disimpan.");
+  success("Bagian panduan telah disimpan.");
+}
+
+export async function saveDocumentSettings(formData: FormData) {
+  const { supabase, email } = await requireAdmin();
+  const payload = {
+    id: true,
+    signer_name: textValue(formData, "signerName", false),
+    signer_title: textValue(formData, "signerTitle", false),
+    rt_number: textValue(formData, "rtNumber", false),
+    rw_number: textValue(formData, "rwNumber", false),
+    kelurahan: textValue(formData, "kelurahan", false),
+    kecamatan: textValue(formData, "kecamatan", false),
+    kabupaten: textValue(formData, "kabupaten", false),
+    provinsi: textValue(formData, "provinsi", false),
+    city: textValue(formData, "city", false),
+    number_format: textValue(formData, "numberFormat", false),
+    enabled: boolValue(formData, "enabled"),
+    updated_by: email,
+  };
+  if (payload.enabled && Object.entries(payload).filter(([key]) => ["signer_name", "signer_title", "rt_number", "rw_number", "kelurahan", "kecamatan", "kabupaten", "provinsi", "city", "number_format"].includes(key)).some(([, value]) => !value)) {
+    throw new Error("Lengkapi identitas penerbit dan format nomor sebelum membuka penerbitan.");
+  }
+  if (payload.enabled && !payload.number_format.includes("{number}")) throw new Error("Format nomor wajib memuat {number}.");
+  const { error } = await supabase.from("document_settings").upsert(payload, { onConflict: "id" });
+  if (error) throw new Error("Pengaturan surat tidak dapat disimpan.");
+  success(payload.enabled ? "Penerbitan surat telah dibuka." : "Penerbitan surat tetap terkunci.");
+}
+
+export async function reviewResidentSubmission(formData: FormData) {
+  const { supabase, email } = await requireAdmin();
+  const id = textValue(formData, "id");
+  const status = textValue(formData, "status");
+  if (!["in_review", "needs_revision", "approved", "rejected"].includes(status)) throw new Error("Status pendataan tidak valid.");
+  const note = textValue(formData, "adminNote", false);
+  const { data: submission, error: lookupError } = await supabase.from("resident_submissions").select("property_id,payload").eq("id", id).single();
+  if (lookupError || !submission) throw new Error("Pendataan tidak ditemukan.");
+  if (status === "approved") {
+    const parsed = residentSubmissionSchema.safeParse(submission.payload);
+    if (!parsed.success) throw new Error("Data pendataan tidak memenuhi format saat ini.");
+    const values = parsed.data;
+    const { error: profileError } = await supabase.from("resident_profiles").upsert({
+      property_id: submission.property_id,
+      responsible_name: values.responsibleName,
+      responsible_address: values.responsibleAddress,
+      whatsapp: values.whatsapp,
+      head_of_household_name: values.headOfHouseholdName,
+      head_of_household_occupation: values.headOfHouseholdOccupation,
+      occupants_count: values.occupantsCount,
+      contact_email: values.email,
+    }, { onConflict: "property_id" });
+    if (profileError) throw new Error("Profil rumah tidak dapat disahkan.");
+    const { error: propertyError } = await supabase.from("properties").update({ occupancy_status: values.houseStatus }).eq("id", submission.property_id);
+    if (propertyError) throw new Error("Status rumah tidak dapat diperbarui.");
+  }
+  const { error } = await supabase.from("resident_submissions").update({ status, admin_note: note || null, reviewed_by: email, reviewed_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error("Status pendataan tidak dapat disimpan.");
+  success("Status pendataan warga telah diperbarui.");
+}
+
+export async function reviewServiceRequest(formData: FormData) {
+  const { supabase, email } = await requireAdmin();
+  const id = textValue(formData, "id");
+  const status = textValue(formData, "status");
+  if (!["in_review", "needs_revision", "approved", "rejected"].includes(status)) throw new Error("Status surat tidak valid.");
+  const { data: current, error: lookupError } = await supabase.from("service_requests").select("status").eq("id", id).single();
+  if (lookupError || !current) throw new Error("Permohonan surat tidak ditemukan.");
+  if (current.status === "issued") throw new Error("Surat yang sudah diterbitkan tidak dapat diubah melalui antrean.");
+  const { error } = await supabase.from("service_requests").update({ status, admin_note: textValue(formData, "adminNote", false) || null, reviewed_by: email, reviewed_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error("Status permohonan tidak dapat disimpan.");
+  success("Status permohonan surat telah diperbarui.");
+}
+
+export async function issueServiceRequest(formData: FormData) {
+  const { supabase, email } = await requireAdmin();
+  const requestId = textValue(formData, "id");
+  const { data: requestRow, error: requestError } = await supabase.from("service_requests").select("id,request_type,status,payload").eq("id", requestId).single();
+  if (requestError || !requestRow) throw new Error("Permohonan surat tidak ditemukan.");
+  if (requestRow.status !== "approved") throw new Error("Hanya permohonan yang telah disetujui dapat diterbitkan.");
+  const { data: existing } = await supabase.from("document_issuances").select("id").eq("request_id", requestId).maybeSingle();
+  if (existing) throw new Error("Surat ini sudah diterbitkan.");
+  const { data: rawSettings, error: settingsError } = await supabase.from("document_settings").select("*").eq("id", true).maybeSingle();
+  if (settingsError || !rawSettings) throw new Error("Lengkapi pengaturan penerbit surat lebih dahulu.");
+  const settings: DocumentSettings = {
+    signerName: rawSettings.signer_name,
+    signerTitle: rawSettings.signer_title,
+    rtNumber: rawSettings.rt_number,
+    rwNumber: rawSettings.rw_number,
+    kelurahan: rawSettings.kelurahan,
+    kecamatan: rawSettings.kecamatan,
+    kabupaten: rawSettings.kabupaten,
+    provinsi: rawSettings.provinsi,
+    city: rawSettings.city,
+    numberFormat: rawSettings.number_format,
+    enabled: rawSettings.enabled,
+  };
+  if (!settings.enabled || Object.values(settings).slice(0, -1).some((value) => !value)) throw new Error("Penerbitan masih terkunci atau konfigurasi surat belum lengkap.");
+  const issuedAt = new Date();
+  const year = Number(new Intl.DateTimeFormat("en", { year: "numeric", timeZone: "Asia/Jakarta" }).format(issuedAt));
+  const { data: serial, error: serialError } = await supabase.rpc("next_document_serial", { p_type: requestRow.request_type, p_year: year });
+  if (serialError || !Number.isInteger(serial)) throw new Error("Nomor urut surat tidak dapat dibuat.");
+  const type = requestRow.request_type as "move" | "domicile" | "single";
+  const number = formatDocumentNumber(settings.numberFormat, type, serial, year);
+  const bytes = await renderOfficialDocument({ type, number, issuedAt, settings, payload: requestRow.payload as Record<string, unknown> });
+  const storagePath = `issued/${requestId}.pdf`;
+  const adminStorage = createSupabaseAdminClient();
+  const { error: uploadError } = await adminStorage.storage.from("document-exports").upload(storagePath, bytes, { contentType: "application/pdf", upsert: false });
+  if (uploadError) throw new Error("PDF surat tidak dapat disimpan secara privat.");
+  const { error: issuanceError } = await supabase.from("document_issuances").insert({ request_id: requestId, serial_number: serial, issue_year: year, document_number: number, storage_path: storagePath, snapshot: { settings, payload: requestRow.payload }, issued_by: email });
+  if (issuanceError) throw new Error("Arsip penerbitan surat tidak dapat dibuat.");
+  const { error: statusError } = await supabase.from("service_requests").update({ status: "issued", reviewed_by: email, reviewed_at: issuedAt.toISOString() }).eq("id", requestId);
+  if (statusError) throw new Error("Surat telah diarsipkan, namun status belum diperbarui.");
+  success("PDF surat resmi telah diterbitkan dan diarsipkan privat.");
+}
+
+export async function rotatePropertyLink(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = textValue(formData, "id");
+  const token = createAccessToken();
+  const { error } = await supabase.from("properties").update({ access_token_hash: hashAccessToken(token), access_token_created_at: new Date().toISOString(), access_token_revoked_at: null }).eq("id", id);
+  if (error) throw new Error("Tautan rumah tidak dapat diperbarui.");
+  revalidatePath("/admin");
+  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  redirect(`/admin?message=${encodeURIComponent("Tautan privat baru dibuat. Salin dan kirimkan hanya kepada rumah terkait.")}&homeLink=${encodeURIComponent(`${base}/rumah/${token}`)}`);
+}
+
+export async function revokePropertyLink(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = textValue(formData, "id");
+  const { error } = await supabase.from("properties").update({ access_token_revoked_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error("Tautan rumah tidak dapat dicabut.");
+  success("Tautan privat rumah telah dicabut.");
+}
+
+export async function saveCashTransaction(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const amount = Number(textValue(formData, "amountRupiah"));
+  const direction = textValue(formData, "direction");
+  if (!Number.isInteger(amount) || amount < 1 || amount > 1_000_000_000) throw new Error("Nominal Kas tidak valid.");
+  if (direction !== "income" && direction !== "expense") throw new Error("Arah transaksi tidak valid.");
+  const { error } = await supabase.from("cash_transactions").insert({
+    transaction_date: textValue(formData, "transactionDate"),
+    category: textValue(formData, "category"),
+    description: textValue(formData, "description", false),
+    direction,
+    amount_rupiah: amount,
+    is_public: boolValue(formData, "isPublic"),
+  });
+  if (error) throw new Error("Transaksi Kas tidak dapat disimpan.");
+  success("Transaksi Kas telah disimpan.");
+}
+
+export async function saveStaffProfile(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = textValue(formData, "id", false);
+  const sortOrder = Number(textValue(formData, "sortOrder"));
+  if (!Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Urutan petugas tidak valid.");
+  const payload = { name: textValue(formData, "name"), role: textValue(formData, "role"), whatsapp: textValue(formData, "whatsapp", false) || null, published: boolValue(formData, "published"), sort_order: sortOrder };
+  const { error } = id ? await supabase.from("staff_profiles").update(payload).eq("id", id) : await supabase.from("staff_profiles").insert(payload);
+  if (error) throw new Error("Profil petugas tidak dapat disimpan.");
+  revalidatePath("/petugas");
+  success("Profil petugas telah disimpan.");
+}
+
+export async function saveHomeSpec(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = textValue(formData, "id", false);
+  const category = textValue(formData, "category");
+  const sortOrder = Number(textValue(formData, "sortOrder"));
+  if (!["Keramik", "Cat", "Kontak"].includes(category) || !Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Spesifikasi rumah tidak valid.");
+  const payload = { category, label: textValue(formData, "label"), value: textValue(formData, "value"), published: boolValue(formData, "published"), sort_order: sortOrder };
+  const { error } = id ? await supabase.from("home_specs").update(payload).eq("id", id) : await supabase.from("home_specs").insert(payload);
+  if (error) throw new Error("Spesifikasi rumah tidak dapat disimpan.");
+  revalidatePath("/spesifikasi-rumah");
+  success("Spesifikasi rumah telah disimpan.");
+}
+
+export async function saveFloorPlanAsset(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = textValue(formData, "id", false);
+  const file = formData.get("file");
+  const sortOrder = Number(textValue(formData, "sortOrder"));
+  if (!Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Urutan denah tidak valid.");
+  let storagePath = textValue(formData, "storagePath", false);
+  if (file && typeof file === "object" && "arrayBuffer" in file && "size" in file && "type" in file && file.size > 0) {
+    const upload = file as File;
+    if (upload.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(upload.type)) throw new Error("Denah harus berupa JPG, PNG, atau WEBP maksimal 5 MB.");
+    const extension = upload.type === "image/png" ? "png" : upload.type === "image/webp" ? "webp" : "jpg";
+    storagePath = `floor-plans/${randomUUID()}.${extension}`;
+    const { error: uploadError } = await createSupabaseAdminClient().storage.from("opal-assets").upload(storagePath, Buffer.from(await upload.arrayBuffer()), { contentType: upload.type, upsert: false });
+    if (uploadError) throw new Error("Berkas denah tidak dapat diunggah.");
+  }
+  if (!storagePath) throw new Error("Unggah berkas denah terlebih dahulu.");
+  const payload = { title: textValue(formData, "title"), alt_text: textValue(formData, "altText"), storage_path: storagePath, published: boolValue(formData, "published"), sort_order: sortOrder };
+  const { error } = id ? await supabase.from("floor_plan_assets").update(payload).eq("id", id) : await supabase.from("floor_plan_assets").insert(payload);
+  if (error) throw new Error("Aset denah tidak dapat disimpan.");
+  revalidatePath("/denah");
+  success("Aset denah telah disimpan.");
+}
+
+export async function signOut() {
+  if (isSupabaseConfigured()) {
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.signOut();
+  }
+  redirect("/admin/login");
+}
