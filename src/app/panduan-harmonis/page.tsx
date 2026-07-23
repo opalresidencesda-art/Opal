@@ -16,15 +16,16 @@ export default async function PanduanHarmonisPage() {
   return (
     <>
       <GuideHashScroll />
-      <section className="border-b border-line bg-surface-subtle">
-        <div className="mx-auto grid max-w-[1440px] overflow-hidden sm:grid-cols-[1.05fr_0.95fr]">
-          <div className="px-5 py-14 sm:px-8 lg:px-10 lg:py-20">
-            <p className="flex items-center gap-2 text-[0.72rem] font-bold tracking-[0.14em] text-brand"><BookOpenText size={18} weight="fill" aria-hidden="true" /> PANDUAN HARMONIS</p>
-            <h1 className="mt-5 max-w-2xl text-balance text-4xl font-bold tracking-[-0.07em] text-ink sm:text-5xl lg:text-6xl lg:leading-[0.95]">Pedoman bertetangga yang selalu siap diakses.</h1>
-            <p className="mt-6 max-w-xl text-base leading-7 text-ink-muted sm:text-lg">Versi web resmi panduan warga OPAL. Setiap aturan dapat dibagikan lewat tautan langsung, dibaca dengan nyaman, dan diperbarui saat kebijakan lingkungan berubah.</p>
+      <section className="overflow-hidden bg-action text-ink-inverse">
+        <div className="mx-auto grid max-w-[1440px] overflow-hidden sm:grid-cols-[0.92fr_1.08fr]">
+          <div className="flex items-center px-5 py-14 sm:px-8 lg:px-10 lg:py-20">
+            <div className="max-w-2xl"><p className="flex items-center gap-2 text-[0.72rem] font-bold tracking-[0.14em] text-brand-soft"><BookOpenText size={18} weight="fill" aria-hidden="true" /> PANDUAN HARMONIS</p>
+            <h1 className="public-display mt-5 text-4xl font-bold leading-[0.96] sm:text-5xl lg:text-6xl">Pedoman bertetangga yang selalu siap diakses.</h1>
+            <p className="mt-6 max-w-xl text-base leading-7 text-ink-inverse/78 sm:text-lg">Versi web resmi panduan warga OPAL. Setiap aturan dapat dibagikan lewat tautan langsung dan diperbarui saat kebijakan lingkungan berubah.</p></div>
           </div>
-          <div className="relative min-h-64 border-t border-line sm:min-h-0 sm:border-l sm:border-t-0">
-            <Image src="/images/opal-neighborhood-hero.png" alt="Lingkungan OPAL Residence" fill priority sizes="(max-width: 640px) 100vw, 50vw" className="object-cover" />
+          <div className="hero-image-drift relative min-h-[300px] sm:min-h-0">
+            <Image src="/images/opal-neighborhood-hero.png" alt="Lingkungan OPAL Residence" fill priority sizes="(max-width: 640px) 100vw, 55vw" className="object-cover object-[62%_center]" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,48,41,0.45),transparent_42%)]" aria-hidden="true" />
           </div>
         </div>
       </section>
@@ -32,7 +33,7 @@ export default async function PanduanHarmonisPage() {
       <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-10 sm:px-8 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-16 lg:px-10 lg:py-16">
         <GuideSectionNav sections={data.guideSections} />
         <div className="min-w-0">
-          <div className="mb-10 flex gap-3 border-l-2 border-brand bg-surface-subtle px-5 py-4 text-sm leading-6 text-ink-muted">
+          <div className="mb-12 flex gap-3 border-l-2 border-brand px-5 py-1 text-sm leading-6 text-ink-muted">
             <Info className="mt-0.5 shrink-0 text-brand" size={20} weight="fill" aria-hidden="true" />
             <p>Nominal iuran di halaman ini adalah informasi aktif. Perubahan nominal akan diumumkan RT dan ditampilkan beserta tanggal berlakunya.</p>
           </div>

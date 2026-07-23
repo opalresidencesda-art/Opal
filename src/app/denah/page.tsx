@@ -19,13 +19,13 @@ export default async function DenahPage() {
 
   return (
     <div>
-      <section className="border-b border-line bg-surface-subtle">
-        <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-12 sm:px-8 lg:grid-cols-[minmax(0,1.12fr)_minmax(18rem,0.88fr)] lg:items-end lg:px-10 lg:py-16">
+      <section className="bg-action text-ink-inverse">
+        <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-14 sm:px-8 lg:grid-cols-[minmax(0,1.12fr)_minmax(18rem,0.88fr)] lg:items-end lg:px-10 lg:py-20">
           <div>
-            <p className="text-sm font-bold text-brand">Referensi rumah</p>
-            <h1 className="mt-3 max-w-3xl text-balance text-4xl font-bold tracking-[-0.07em] text-ink sm:text-5xl">Denah OPAL Tipe 6 x 12.</h1>
+            <p className="text-xs font-extrabold tracking-[0.16em] text-brand-soft">REFERENSI RUMAH</p>
+            <h1 className="public-display mt-5 max-w-3xl text-4xl font-bold leading-[0.96] sm:text-5xl lg:text-6xl">Denah OPAL Tipe 6 x 12.</h1>
           </div>
-          <p className="max-w-md border-l-2 border-brand pl-4 text-base leading-7 text-ink-muted">Empat lembar denah asli tersedia sebagai galeri web. Gunakan sebagai referensi, bukan pengganti persetujuan renovasi.</p>
+          <p className="max-w-md border-l-2 border-brand-soft pl-5 text-base leading-7 text-ink-inverse/78">Empat lembar denah asli tersedia sebagai galeri web. Gunakan sebagai referensi, bukan pengganti persetujuan renovasi.</p>
         </div>
       </section>
 

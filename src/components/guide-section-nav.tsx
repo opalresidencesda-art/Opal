@@ -22,7 +22,7 @@ export function GuideSectionNav({ sections }: { sections: GuideSection[] }) {
         </select>
         <CaretDown className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-brand" size={20} weight="bold" aria-hidden="true" />
       </label>
-      <nav className="sticky top-[98px] hidden border-y border-line lg:block" aria-label="Daftar isi panduan">
+      <nav className="sticky top-[92px] hidden border-y border-line lg:block" aria-label="Daftar isi panduan">
         <p className="border-b border-line py-4 text-sm font-bold tracking-[0.1em] text-ink-muted">ISI PANDUAN</p>
         <ul className="divide-y divide-line">
           {sections.map((section) => (

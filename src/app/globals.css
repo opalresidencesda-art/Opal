@@ -4,24 +4,24 @@
 :root {
   --font-ui: "Manrope Variable", "Aptos", "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
   --font-code: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-  --surface: #f4f8f6;
-  --surface-raised: #fcfdfb;
-  --surface-subtle: #e5efeb;
-  --ink: #10201d;
-  --ink-muted: #4e625c;
-  --ink-faint: #6b7c75;
+  --surface: #f3f7f5;
+  --surface-raised: #fbfdfc;
+  --surface-subtle: #e4efea;
+  --ink: #09251f;
+  --ink-muted: #47615a;
+  --ink-faint: #6a8179;
   --danger: #a53928;
   --danger-deep: #6d1f15;
   --danger-soft: #f7e4e0;
-  --ink-inverse: #f2f6f1;
-  --brand: #087b6e;
-  --brand-deep: #075d53;
-  --brand-soft: #cce9e1;
-  --on-brand: #f2f6f1;
-  --action: #0b1715;
-  --on-action: #f2f6f1;
-  --warm: #e5efeb;
-  --line: #d3e0db;
+  --ink-inverse: #f4faf6;
+  --brand: #087568;
+  --brand-deep: #05564d;
+  --brand-soft: #c9e8dc;
+  --on-brand: #f4faf6;
+  --action: #0b3029;
+  --on-action: #f4faf6;
+  --warm: #d7e8e0;
+  --line: #d0e0d8;
   --media-overlay: rgba(7, 34, 29, 0.5);
   color-scheme: light;
 }
@@ -66,7 +66,7 @@ body {
   font-family: var(--font-ui);
   font-feature-settings: "ss01", "ss02", "cv02", "cv03";
   text-rendering: optimizeLegibility;
-  transition: background-color 220ms ease, color 220ms ease;
+  transition: background-color 180ms ease, color 180ms ease;
 }
 
 ::selection {
@@ -90,6 +90,60 @@ a {
 a:active,
 button:active {
   transform: translateY(1px);
+}
+
+.public-kicker {
+  color: var(--brand);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.public-display {
+  letter-spacing: -0.073em;
+  text-wrap: balance;
+}
+
+.public-rule {
+  height: 2px;
+  width: 3rem;
+  background: var(--brand);
+}
+
+.public-row-link {
+  position: relative;
+}
+
+.public-row-link::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 3px;
+  background: var(--brand);
+  content: "";
+  opacity: 0;
+  transform: scaleY(0.45);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.public-row-link:hover::before,
+.public-row-link:focus-visible::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+@keyframes opal-photo-breathe {
+  from { transform: scale(1.015); }
+  to { transform: scale(1.07); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-image-drift > img {
+    animation: opal-photo-breathe 16s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }
 
 :focus-visible {

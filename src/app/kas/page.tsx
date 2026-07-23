@@ -13,23 +13,23 @@ export default async function KasPage() {
 
   return (
     <div>
-      <section className="border-b border-line bg-surface-subtle">
-        <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-12 sm:px-8 lg:grid-cols-[minmax(0,1.12fr)_minmax(18rem,0.88fr)] lg:items-end lg:px-10 lg:py-16">
+      <section className="bg-action text-ink-inverse">
+        <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-14 sm:px-8 lg:grid-cols-[minmax(0,1.12fr)_minmax(18rem,0.88fr)] lg:items-end lg:px-10 lg:py-20">
           <div>
-            <p className="text-sm font-bold text-brand">Kas OPAL</p>
-            <h1 className="mt-3 max-w-4xl text-balance text-4xl font-bold tracking-[-0.07em] text-ink sm:text-5xl lg:text-6xl">
+            <p className="text-xs font-extrabold tracking-[0.16em] text-brand-soft">KAS OPAL</p>
+            <h1 className="public-display mt-5 max-w-4xl text-4xl font-bold leading-[0.96] sm:text-5xl lg:text-6xl">
               Kas yang bisa dibaca warga.
             </h1>
           </div>
-          <p className="max-w-md border-l-2 border-brand pl-4 text-base leading-7 text-ink-muted">
+          <p className="max-w-md border-l-2 border-brand-soft pl-5 text-base leading-7 text-ink-inverse/78">
             Ringkasan publik dibuat untuk transparansi. Riwayat iuran setiap rumah tetap tersedia melalui tautan privat dari RT.
           </p>
         </div>
       </section>
 
       <section className="mx-auto max-w-[1440px] px-5 py-10 sm:px-8 lg:px-10 lg:py-14">
-        <div className="grid overflow-hidden rounded-[16px] border border-line bg-surface-raised lg:grid-cols-[minmax(0,1.12fr)_minmax(18rem,0.88fr)]">
-          <div className="p-6 sm:p-8 lg:p-10">
+        <div className="grid border-b border-line lg:grid-cols-[minmax(0,1.12fr)_minmax(18rem,0.88fr)]">
+          <div className="py-8 sm:py-10 lg:py-12">
             <div className="flex items-center gap-2 text-sm font-bold text-ink-muted">
               <Wallet size={18} weight="fill" className="text-brand" aria-hidden="true" />
               Saldo ringkasan
@@ -37,15 +37,15 @@ export default async function KasPage() {
             <p className="mt-7 text-4xl font-bold tracking-[-0.07em] text-ink sm:text-5xl">{formatRupiah(summary.balance)}</p>
             {summary.lastUpdated ? <p className="mt-4 text-sm text-ink-muted">Per {formatDate(summary.lastUpdated)}</p> : <p className="mt-4 text-sm text-ink-muted">Akan diperbarui setelah pembukuan publik diterbitkan.</p>}
           </div>
-          <dl className="border-t border-line lg:border-t-0 lg:border-l">
-            <div className="flex items-center justify-between gap-5 border-b border-line px-6 py-6 sm:px-8">
+          <dl className="border-t border-line bg-surface-subtle lg:border-t-0 lg:border-l">
+            <div className="flex items-center justify-between gap-5 border-b border-line px-5 py-6 sm:px-8">
               <dt className="flex items-center gap-2 text-sm font-bold text-ink-muted">
                 <ArrowDownLeft size={18} weight="bold" className="text-brand" aria-hidden="true" />
                 Pemasukan publik
               </dt>
               <dd className="text-xl font-bold tracking-[-0.05em] text-ink">{formatRupiah(summary.income)}</dd>
             </div>
-            <div className="flex items-center justify-between gap-5 px-6 py-6 sm:px-8">
+            <div className="flex items-center justify-between gap-5 px-5 py-6 sm:px-8">
               <dt className="flex items-center gap-2 text-sm font-bold text-ink-muted">
                 <ArrowUpRight size={18} weight="bold" className="text-brand" aria-hidden="true" />
                 Pengeluaran publik
