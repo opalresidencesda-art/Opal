@@ -69,7 +69,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const homeLink = typeof params.homeLink === "string" && /^https?:\/\//.test(params.homeLink) ? params.homeLink : "";
 
   return (
-    <main className="mx-auto max-w-[1440px] px-5 py-10 sm:px-8 lg:px-10 lg:py-14">
+    <div className="mx-auto max-w-[1440px] px-5 py-10 sm:px-8 lg:px-10 lg:py-14">
       <div className="flex flex-col gap-6 border-b border-line pb-9 sm:flex-row sm:items-end sm:justify-between">
         <div className="border-l-2 border-brand pl-5"><p className="text-sm font-semibold text-brand">Admin RT</p><h1 className="mt-2 text-3xl font-extrabold tracking-[-0.06em] text-ink sm:text-4xl">Kelola informasi portal</h1><p className="mt-3 text-sm leading-6 text-ink-muted">Masuk sebagai {context.email}. Perubahan yang dipublikasikan langsung tampil untuk warga.</p></div>
         <form action={signOut}><button type="submit" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line px-4 text-sm font-bold text-ink transition hover:-translate-y-0.5 hover:border-brand hover:text-brand"><SignOut size={17} weight="bold" aria-hidden="true" /> Keluar</button></form>
@@ -99,12 +99,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <div className="mt-5 grid gap-8"><div><h3 className="text-lg font-extrabold tracking-[-0.035em] text-ink">Petugas</h3><div className="mt-4 grid gap-4 lg:grid-cols-2">{staff.map((item) => <StaffForm key={item.id} staff={item} />)}<StaffForm /></div></div><div><h3 className="text-lg font-extrabold tracking-[-0.035em] text-ink">Spesifikasi rumah</h3><div className="mt-4 grid gap-4 lg:grid-cols-2">{specs.map((item) => <SpecForm key={item.id} spec={item} />)}<SpecForm /></div></div><div><h3 className="text-lg font-extrabold tracking-[-0.035em] text-ink">Denah</h3><div className="mt-4 grid gap-4 lg:grid-cols-2">{plans.map((item) => <PlanForm key={item.id} plan={item} />)}<PlanForm /></div></div></div>
         </section>
       </div>
-    </main>
+    </div>
   );
 }
 
 function SetupState() {
-  return <main className="mx-auto flex min-h-[58vh] max-w-[1440px] items-center px-5 py-14 sm:px-8 lg:px-10"><div className="max-w-2xl border-l-2 border-brand bg-surface-subtle px-7 py-8 sm:px-9 sm:py-10"><GearSix size={35} weight="fill" className="text-brand" aria-hidden="true" /><p className="mt-7 text-sm font-semibold text-brand">Pengaturan diperlukan</p><h1 className="mt-3 text-3xl font-extrabold tracking-[-0.055em] text-ink">Admin siap setelah Supabase dihubungkan.</h1><p className="mt-4 leading-7 text-ink-muted">Tambahkan variabel lingkungan Supabase dan daftar email admin, lalu terapkan skema dan data awal yang tersedia di repository ini. Konten publik tetap menampilkan versi bawaan sampai database terhubung.</p></div></main>;
+  return <div className="mx-auto flex min-h-[58vh] max-w-[1440px] items-center px-5 py-14 sm:px-8 lg:px-10"><div className="max-w-2xl border-l-2 border-brand bg-surface-subtle px-7 py-8 sm:px-9 sm:py-10"><GearSix size={35} weight="fill" className="text-brand" aria-hidden="true" /><p className="mt-7 text-sm font-semibold text-brand">Pengaturan diperlukan</p><h1 className="mt-3 text-3xl font-extrabold tracking-[-0.055em] text-ink">Admin siap setelah Supabase dihubungkan.</h1><p className="mt-4 leading-7 text-ink-muted">Tambahkan variabel lingkungan Supabase dan daftar email admin, lalu terapkan skema dan data awal yang tersedia di repository ini. Konten publik tetap menampilkan versi bawaan sampai database terhubung.</p></div></div>;
 }
 
 function SectionHeading({ icon, title, description }: { icon: "gear" | "wrench" | "stamp" | "users" | "house" | "cash"; title: string; description: string }) {

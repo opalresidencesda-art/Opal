@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 
 test("layanan native dapat dibuka tanpa tautan Google", async ({ page }) => {
   await page.goto("/layanan");
-  await expect(page.getByRole("heading", { name: "Bukan kumpulan tautan. Tempat mengurus kebutuhan lingkungan." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pilih layanan yang Anda butuhkan." })).toBeVisible();
   const residentService = page.locator('main a[href="/pendataan-warga"]');
   await expect(residentService).toHaveCount(1);
   await expect(residentService).toHaveAttribute("href", "/pendataan-warga");
@@ -14,6 +14,21 @@ test("panduan memiliki anchor dan tidak overflow pada viewport aktif", async ({ 
   await page.goto("/panduan-harmonis#stiker-kendaraan");
   await expect(page.locator("#stiker-kendaraan")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("anchor panduan memindahkan konteks keyboard ke bagian tujuan", async ({ page }) => {
+  await page.goto("/panduan-harmonis#stiker-kendaraan");
+  await expect(page.locator("#stiker-kendaraan")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.closest("article")?.id ?? document.activeElement?.id ?? "")).toBe("stiker-kendaraan");
+});
+
+test("tautan lewati memindahkan fokus ke isi utama", async ({ page }) => {
+  await page.goto("/");
+  await page.keyboard.press("Tab");
+  const skipLink = page.getByRole("link", { name: "Lewati ke isi utama" });
+  await expect(skipLink).toBeFocused();
+  await skipLink.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
 });
 
 test("halaman publik tidak memiliki pelanggaran axe kritis", async ({ page }) => {

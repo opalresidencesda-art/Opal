@@ -15,7 +15,7 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
   const notice = sent ? "Tautan masuk telah dikirim. Buka email tersebut di perangkat ini." : reason === "forbidden" ? "Email ini belum diberi akses admin OPAL." : reason === "error" ? "Tautan masuk belum dapat dikirim. Coba lagi beberapa saat lagi." : reason === "setup" ? "Supabase belum dikonfigurasi pada deployment ini." : "";
 
   return (
-    <main className="mx-auto flex min-h-[68vh] max-w-[1440px] items-center px-5 py-12 sm:px-8 lg:px-10">
+    <div className="mx-auto flex min-h-[68vh] max-w-[1440px] items-center px-5 py-12 sm:px-8 lg:px-10">
       <section className="w-full max-w-md border-y border-line bg-surface-raised px-6 py-8 sm:px-8 sm:py-10">
         <BrandMark />
         <div className="mt-10">
@@ -31,6 +31,6 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
         </form>
         <Link href="/" className="mt-6 inline-block text-sm font-bold text-brand-deep hover:text-brand">Kembali ke portal warga</Link>
       </section>
-    </main>
+    </div>
   );
 }
