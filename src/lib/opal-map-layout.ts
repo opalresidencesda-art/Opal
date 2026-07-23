@@ -42,10 +42,10 @@ export type PropertyMapSummary = {
 };
 
 const gangGeometry: Array<{ gang: 1 | 2 | 3 | 5; roadX: number }> = [
-  { gang: 1, roadX: 250 },
-  { gang: 2, roadX: 610 },
-  { gang: 3, roadX: 970 },
-  { gang: 5, roadX: 1_330 },
+  { gang: 1, roadX: 220 },
+  { gang: 2, roadX: 580 },
+  { gang: 3, roadX: 940 },
+  { gang: 5, roadX: 1_300 },
 ];
 
 const housesPerGang = 80;
@@ -67,7 +67,7 @@ export const OPAL_MAP_SLOTS: MapSlot[] = gangGeometry.flatMap(({ gang, roadX }) 
     unitCode: unitCode(gang, houseNumber),
     gang,
     houseNumber,
-    x: side === "west" ? roadX - 58 : roadX + 16,
+    x: side === "west" ? roadX - 72 : roadX + 30,
     y: firstHouseY + row * (houseHeight + rowGap),
     width: houseWidth,
     height: houseHeight,

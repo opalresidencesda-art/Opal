@@ -5,8 +5,9 @@ import { useGesture } from "@use-gesture/react";
 import { ArrowCounterClockwise, CaretRight, CheckCircle, Copy, HouseLine, MagnifyingGlass, MapTrifold, Minus, Plus, Prohibit, Receipt, SpinnerGap, X } from "@phosphor-icons/react";
 import { motion, useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { FormEvent, WheelEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPropertyMapLink, savePropertyProfile } from "@/app/admin/actions";
+import { shouldZoomMapFromWheel } from "@/lib/opal-map-gesture";
 import { OPAL_MAP_SLOTS, OPAL_MAP_VIEWBOX, mapStatus, type MapSlot, type PropertyMapStatus, type PropertyMapSummary, unplacedProperties } from "@/lib/opal-map-layout";
 
 type MapFilter = "all" | PropertyMapStatus;
@@ -27,6 +28,8 @@ const statusMeta: Record<PropertyMapStatus, { label: string; fill: string; strok
 };
 
 const initialCamera: Camera = { x: 0, y: 0, scale: 1 };
+const roadCenters = [220, 580, 940, 1_300];
+const treeClusters = [[156, 154], [1_450, 172], [152, 748], [1_445, 730], [474, 782], [1_098, 786]] as const;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -79,13 +82,11 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
   }, [initialUnit]);
 
   const bind = useGesture({
-    onDrag: ({ first, offset: [x, y], tap }) => {
+    onDrag: ({ event, first, offset: [x, y], tap }) => {
+      if (event instanceof PointerEvent && event.pointerType === "touch") return;
       if (first) dragOrigin.current = camera;
       if (tap) return;
       setCamera({ ...dragOrigin.current, x: dragOrigin.current.x + x, y: dragOrigin.current.y + y });
-    },
-    onWheel: ({ delta: [, deltaY] }) => {
-      setCamera((current) => ({ ...current, scale: clamp(current.scale - deltaY * 0.0014, 0.82, 2.8) }));
     },
     onPinch: ({ first, offset: [distance] }) => {
       if (first) pinchScale.current = camera.scale;
@@ -96,6 +97,12 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
     wheel: { eventOptions: { passive: false } },
     pinch: { scaleBounds: { min: 0.82, max: 2.8 } },
   });
+
+  function handleMapWheel(event: WheelEvent<HTMLDivElement>) {
+    if (!shouldZoomMapFromWheel(event.nativeEvent)) return;
+    event.preventDefault();
+    setCamera((current) => ({ ...current, scale: clamp(current.scale - event.deltaY * 0.0014, 0.82, 2.8) }));
+  }
 
   function focusSlot(slot: MapSlot, shouldOpen = true) {
     const viewport = viewportRef.current;
@@ -143,32 +150,44 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
           <div className="flex overflow-x-auto rounded-xl border border-[#cddbd5] bg-white p-1" aria-label="Filter status peta">{(["all", "attention", "verified", "missing", "vacant"] as MapFilter[]).map((item) => <button key={item} type="button" onClick={() => setFilter(item)} className={`min-h-9 shrink-0 rounded-lg px-3 text-xs font-extrabold ${filter === item ? "bg-action text-on-action shadow-sm" : "text-ink-muted hover:text-brand-deep"}`}>{item === "all" ? "Semua" : statusMeta[item].label}</button>)}</div>
           <div className="flex items-center justify-between gap-1 rounded-xl border border-[#cddbd5] bg-white p-1"><button aria-label="Perkecil peta" type="button" onClick={() => setCamera((current) => ({ ...current, scale: clamp(current.scale - 0.2, 0.82, 2.8) }))} className="grid size-9 place-items-center rounded-lg text-ink hover:bg-surface-subtle"><Minus size={17} weight="bold" /></button><button type="button" onClick={() => setCamera(initialCamera)} className="min-h-9 px-2 text-xs font-extrabold text-ink-muted hover:text-brand-deep">{Math.round(camera.scale * 100)}%</button><button aria-label="Perbesar peta" type="button" onClick={() => setCamera((current) => ({ ...current, scale: clamp(current.scale + 0.2, 0.82, 2.8) }))} className="grid size-9 place-items-center rounded-lg text-ink hover:bg-surface-subtle"><Plus size={17} weight="bold" /></button><button aria-label="Reset peta" type="button" onClick={() => setCamera(initialCamera)} className="grid size-9 place-items-center rounded-lg text-ink hover:bg-surface-subtle"><ArrowCounterClockwise size={16} weight="bold" /></button></div>
         </div>
-        <div ref={viewportRef} {...bind()} className="relative h-[min(68dvh,760px)] min-h-[35rem] touch-none overflow-hidden bg-[#dce7e1]" aria-label="Denah interaktif OPAL. Seret untuk menggeser, cubit atau gunakan roda untuk memperbesar.">
+        <div ref={viewportRef} {...bind()} onWheel={handleMapWheel} className="relative h-[min(68dvh,760px)] min-h-[35rem] touch-pan-y overflow-hidden bg-[#dce7e1]" aria-label="Denah interaktif OPAL. Scroll biasa tetap menggulir halaman. Seret dengan mouse untuk menggeser, cubit atau tahan Ctrl atau Command sambil scroll untuk memperbesar.">
           <motion.div className="absolute inset-0 origin-top-left" animate={camera} transition={reducedMotion ? { duration: 0 } : { type: "spring", stiffness: 220, damping: 30, mass: 0.7 }}>
-            <svg viewBox={`0 0 ${OPAL_MAP_VIEWBOX.width} ${OPAL_MAP_VIEWBOX.height}`} className="size-full select-none" role="img" aria-label="Denah vektor OPAL Residence dengan Gang 1, 2, 3, dan 5">
-              <rect width={OPAL_MAP_VIEWBOX.width} height={OPAL_MAP_VIEWBOX.height} fill="#eaf1ed" />
-              <path d="M90 70H1510V90H90zM90 830H1510V850H90z" fill="#145743" />
-              <path d="M92 90H122V830H92zM1478 90H1508V830H1478z" fill="#2a7a4d" />
-              <path d="M110 876h370v-18h638v18h372v-18H110z" fill="#f3f7f5" opacity=".9" />
-              <rect x="122" y="104" width="1356" height="714" rx="8" fill="#eff3f1" stroke="#bacac2" strokeWidth="2" />
-              {[250, 610, 970, 1330].map((roadX) => <g key={roadX}><rect x={roadX - 9} y="112" width="60" height="696" rx="4" fill="#9aa7a2" /><path d={`M${roadX + 20} 120v680`} stroke="#f8faf8" strokeWidth="2" strokeDasharray="9 9" opacity=".78" /></g>)}
-              <g fill="#248747"><rect x="130" y="112" width="82" height="24" rx="3" /><rect x="1388" y="784" width="80" height="24" rx="3" /><rect x="84" y="856" width="122" height="20" rx="3" /><rect x="1394" y="856" width="110" height="20" rx="3" /></g>
-              <g fontFamily="Manrope, sans-serif" fontWeight="800" fill="#35584c" textAnchor="middle"><text x="280" y="118" fontSize="13">GANG 1</text><text x="640" y="118" fontSize="13">GANG 2</text><text x="1000" y="118" fontSize="13">GANG 3</text><text x="1360" y="118" fontSize="13">GANG 5</text><text x="800" y="882" fontSize="15" letterSpacing="4">OPAL RESIDENCE</text></g>
-              <g><rect x="720" y="74" width="160" height="42" rx="4" fill="#f9fcfa" stroke="#a6bbb0" /><text x="800" y="100" textAnchor="middle" fontFamily="Manrope, sans-serif" fontSize="12" fontWeight="800" fill="#0b3029">GERBANG UTAMA</text></g>
+            <svg viewBox={`0 0 ${OPAL_MAP_VIEWBOX.width} ${OPAL_MAP_VIEWBOX.height}`} className="size-full select-none" role="img" aria-label="Denah top-down OPAL Residence dengan Gang 1, 2, 3, dan 5">
+              <defs>
+                <filter id="building-shadow" x="-20%" y="-30%" width="150%" height="180%"><feDropShadow dx="1.5" dy="2.5" stdDeviation="1.4" floodColor="#214b3c" floodOpacity=".26" /></filter>
+                <filter id="tree-shadow" x="-70%" y="-70%" width="240%" height="240%"><feDropShadow dx="1.5" dy="2.5" stdDeviation="1.2" floodColor="#1e4a32" floodOpacity=".35" /></filter>
+                <pattern id="grass-grain" width="28" height="28" patternUnits="userSpaceOnUse"><rect width="28" height="28" fill="#d7e6d8" /><path d="M2 7l3-2m8 14 3-2m5-11 2 2M7 24l2-3m13 3 3-2" stroke="#bfd5c3" strokeWidth="1" opacity=".72" /></pattern>
+                <pattern id="asphalt-grain" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill="#aeb7b3" /><circle cx="3" cy="4" r=".6" fill="#929e98" /><circle cx="12" cy="10" r=".5" fill="#c1c8c5" /></pattern>
+                <linearGradient id="roof-slate" x1="0" x2="1" y1="0" y2="1"><stop stopColor="#7a8983" /><stop offset="1" stopColor="#4e6059" /></linearGradient>
+                <linearGradient id="roof-warm" x1="0" x2="1" y1="0" y2="1"><stop stopColor="#8b8278" /><stop offset="1" stopColor="#5c625c" /></linearGradient>
+              </defs>
+              <rect width={OPAL_MAP_VIEWBOX.width} height={OPAL_MAP_VIEWBOX.height} fill="url(#grass-grain)" />
+              <path d="M68 60h1464v800H68z" fill="none" stroke="#35634a" strokeWidth="18" opacity=".92" />
+              <path d="M92 84h1416v752H92z" fill="none" stroke="#eff6ee" strokeWidth="4" opacity=".85" />
+              <rect x="112" y="102" width="1_376" height="718" rx="12" fill="#e8f0e8" stroke="#b6cbbd" strokeWidth="2" />
+              <path d="M132 760h238v38H132zm1_046 0h286v38h-286zM704 748h192v54H704z" fill="#bdd9bf" stroke="#8cb58f" strokeWidth="2" />
+              <path d="M130 111h1_340v38H130zM130 776h1_340v32H130z" fill="url(#asphalt-grain)" stroke="#8f9c96" strokeWidth="2" />
+              {roadCenters.map((roadX) => <g key={roadX}><rect x={roadX - 22} y="112" width="44" height="666" rx="4" fill="url(#asphalt-grain)" stroke="#8b9892" strokeWidth="2" /><path d={`M${roadX} 124v642`} stroke="#f9fbf9" strokeWidth="1.75" strokeDasharray="8 9" opacity=".9" /><path d={`M${roadX - 21} 116v658M${roadX + 21} 116v658`} stroke="#e8eeea" strokeWidth="2" opacity=".9" /></g>)}
+              {treeClusters.map(([x, y], index) => <g key={`${x}-${y}`} filter="url(#tree-shadow)"><circle cx={x} cy={y} r={17 + (index % 3) * 2} fill="#4f9658" /><circle cx={x - 8} cy={y - 5} r={11} fill="#69aa62" opacity=".94" /><circle cx={x + 9} cy={y - 6} r={9} fill="#3b7d48" opacity=".9" /></g>)}
+              <g filter="url(#building-shadow)"><rect x="696" y="62" width="208" height="54" rx="5" fill="#eef4ef" stroke="#82988c" strokeWidth="2" /><rect x="730" y="72" width="140" height="22" rx="2" fill="url(#roof-slate)" /><path d="M800 72v22" stroke="#d6e1dc" strokeWidth="1.5" opacity=".8" /><rect x="778" y="95" width="44" height="21" fill="#c4cbc6" /></g>
+              <g fontFamily="Manrope, sans-serif" fontWeight="800" fill="#35584c" textAnchor="middle"><text x="220" y="136" fontSize="12" letterSpacing="1">GANG 1</text><text x="580" y="136" fontSize="12" letterSpacing="1">GANG 2</text><text x="940" y="136" fontSize="12" letterSpacing="1">GANG 3</text><text x="1300" y="136" fontSize="12" letterSpacing="1">GANG 5</text><text x="800" y="98" fontSize="11" letterSpacing="2">GERBANG UTAMA</text><text x="800" y="790" fontSize="15" letterSpacing="5">OPAL RESIDENCE</text></g>
               {OPAL_MAP_SLOTS.map((slot) => {
                 const property = propertyByUnit.get(slot.unitCode);
                 const status = dataStatus(property);
                 const visual = statusMeta[status];
                 const selected = slot.unitCode === selectedUnit;
                 const active = isActive(slot);
+                const roofFill = Number(slot.houseNumber) % 3 === 0 ? "url(#roof-warm)" : "url(#roof-slate)";
+                const drivewayX = slot.side === "west" ? slot.x + slot.width : slot.x - 8;
+                const roofPoints = `${slot.x + 2},${slot.y + 2} ${slot.x + slot.width - 3},${slot.y + 2} ${slot.x + slot.width - 6},${slot.y + slot.height - 2} ${slot.x + 4},${slot.y + slot.height - 2}`;
                 return <motion.g key={slot.unitCode} role="button" tabIndex={0} aria-label={`${slot.unitCode}, ${visual.label}`} aria-pressed={selected} onClick={() => focusSlot(slot)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); focusSlot(slot); } }} initial={false} animate={{ opacity: active || selected ? 1 : 0.15, scale: selected ? 1.14 : 1 }} transition={reducedMotion ? { duration: 0 } : { type: "spring", stiffness: 360, damping: 24 }} style={{ transformOrigin: `${slot.x + slot.width / 2}px ${slot.y + slot.height / 2}px`, cursor: "pointer" }}>
-                  <title>{`${slot.unitCode}: ${visual.label}`}</title><rect x={slot.x} y={slot.y} width={slot.width} height={slot.height} rx="2" fill={visual.fill} stroke={selected ? "#072b23" : visual.stroke} strokeWidth={selected ? 3 : 1.2} strokeDasharray={status === "vacant" ? "3 2" : undefined} />
-                  {selected || camera.scale > 1.7 ? <text x={slot.x + slot.width / 2} y={slot.y + 9} textAnchor="middle" fontFamily="Manrope, sans-serif" fontSize="6.5" fontWeight="800" fill={status === "vacant" ? "#35584c" : "#ffffff"}>{slot.houseNumber}</text> : null}
+                  <title>{`${slot.unitCode}: ${visual.label}`}</title><rect x={slot.x - 4} y={slot.y - 2} width={slot.width + 8} height={slot.height + 4} rx="2" fill="#d8e5d8" stroke="#b5c9b7" strokeWidth=".7" /><rect x={drivewayX} y={slot.y + 3} width="8" height={slot.height - 6} fill="#c0c9c3" /><polygon points={roofPoints} transform="translate(1.4 2)" fill="#344940" opacity=".25" /><polygon points={roofPoints} fill={roofFill} /><path d={`M${slot.x + 4} ${slot.y + 3}h${slot.width - 9}`} stroke="#dfe8e2" strokeWidth=".9" opacity=".7" /><rect x={slot.side === "west" ? slot.x + 1 : slot.x + slot.width - 5} y={slot.y + 1} width="4" height={slot.height - 2} rx="1" fill={visual.fill} /><rect x={slot.x - 4} y={slot.y - 2} width={slot.width + 8} height={slot.height + 4} rx="2" fill="none" stroke={selected ? "#072b23" : visual.stroke} strokeWidth={selected ? 2.6 : 1} strokeDasharray={status === "vacant" ? "3 2" : undefined} />
+                  {selected || camera.scale > 1.7 ? <text x={slot.x + slot.width / 2} y={slot.y + 10} textAnchor="middle" fontFamily="Manrope, sans-serif" fontSize="6.5" fontWeight="800" fill="#ffffff">{slot.houseNumber}</text> : null}
                 </motion.g>;
               })}
             </svg>
           </motion.div>
-          <div className="pointer-events-none absolute bottom-4 left-4 max-w-[18rem] rounded-xl border border-white/60 bg-white/92 px-3 py-2.5 text-xs font-semibold leading-5 text-ink-muted shadow-[0_10px_30px_rgba(8,48,41,0.12)]">Seret denah untuk menjelajah. Klik rumah untuk melihat data. Pencarian dan filter tidak menyembunyikan bentuk denah.</div>
+          <div className="pointer-events-none absolute bottom-4 left-4 max-w-[18rem] rounded-xl border border-white/60 bg-white/92 px-3 py-2.5 text-xs font-semibold leading-5 text-ink-muted shadow-[0_10px_30px_rgba(8,48,41,0.12)]">Scroll tetap untuk halaman. Seret dengan mouse atau cubit untuk menjelajah peta. Tahan Ctrl atau Command sambil scroll untuk zoom.</div>
         </div>
       </section>
       <aside className="rounded-[22px] border border-[#c8d7d0] bg-[#f9fcfa] p-5 shadow-[0_22px_80px_rgba(7,43,35,0.08)]"><div className="flex items-center gap-2"><MapTrifold size={22} weight="duotone" className="text-brand" /><h2 className="font-black tracking-[-0.04em] text-ink">Tinjauan Atlas</h2></div><dl className="mt-5 space-y-4">{[

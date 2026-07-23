@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { OPAL_MAP_SLOTS, mapStatus, unplacedProperties, type PropertyMapSummary } from "../src/lib/opal-map-layout";
+import { shouldZoomMapFromWheel } from "../src/lib/opal-map-gesture";
 
 const emptyProperty: PropertyMapSummary = {
   id: "property-id", unitCode: "OP 2 - 62", gang: 2, houseNumber: "62", occupancyStatus: null, active: true, accessLinkActive: false,
@@ -20,5 +21,11 @@ describe("OPAL Atlas layout", () => {
 
   it("keeps properties without a matching architectural slot unplaced", () => {
     expect(unplacedProperties([{ ...emptyProperty, unitCode: "OP 2 - 999" }])).toHaveLength(1);
+  });
+
+  it("never steals ordinary page scrolling for map zoom", () => {
+    expect(shouldZoomMapFromWheel({ ctrlKey: false, metaKey: false })).toBe(false);
+    expect(shouldZoomMapFromWheel({ ctrlKey: true, metaKey: false })).toBe(true);
+    expect(shouldZoomMapFromWheel({ ctrlKey: false, metaKey: true })).toBe(true);
   });
 });
