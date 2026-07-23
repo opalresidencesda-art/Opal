@@ -31,6 +31,14 @@ test("tautan lewati memindahkan fokus ke isi utama", async ({ page }) => {
   await expect(page.locator("#main-content")).toBeFocused();
 });
 
+
+test("login admin memakai email dan kata sandi tanpa magic link", async ({ page }) => {
+  await page.goto("/admin/login");
+  await expect(page.getByLabel("Email admin")).toBeVisible();
+  await expect(page.getByLabel("Kata sandi")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Masuk ke admin" })).toBeVisible();
+  await expect(page.getByText("Kirim tautan masuk")).toHaveCount(0);
+});
 test("halaman publik tidak memiliki pelanggaran axe kritis", async ({ page }) => {
   await page.goto("/pendataan-warga");
   const results = await new AxeBuilder({ page }).analyze();

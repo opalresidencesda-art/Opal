@@ -9,7 +9,7 @@ import { formatDocumentNumber } from "@/lib/document-number";
 import { sanitizeMarkdown } from "@/lib/markdown";
 import { createAccessToken, hashAccessToken } from "@/lib/security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isAllowedAdminEmail, isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
+import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { residentSubmissionSchema } from "@/lib/validation";
 
@@ -32,17 +32,21 @@ function success(message: string) {
   redirect(`/admin?message=${encodeURIComponent(message)}`);
 }
 
-export async function requestMagicLink(formData: FormData) {
+export async function signInAdmin(formData: FormData) {
   if (!isSupabaseConfigured() || !supabaseUrl || !supabasePublishableKey) redirect("/admin/login?reason=setup");
   const email = textValue(formData, "email").toLowerCase();
-  if (!isAllowedAdminEmail(email)) redirect("/admin/login?reason=forbidden");
+  const password = textValue(formData, "password");
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/auth/callback` },
-  });
-  if (error) redirect("/admin/login?reason=error");
-  redirect("/admin/login?sent=1");
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) redirect("/admin/login?reason=credentials");
+
+  const { data: admin, error: adminError } = await supabase.from("admin_users").select("email").eq("email", email).maybeSingle();
+  if (adminError || !admin) {
+    await supabase.auth.signOut();
+    redirect("/admin/login?reason=forbidden");
+  }
+
+  redirect("/admin");
 }
 
 export async function saveFeeSchedule(formData: FormData) {

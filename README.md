@@ -24,22 +24,15 @@ Buka `http://localhost:3000`. Tanpa konfigurasi Supabase, halaman publik tetap d
 
 ## Menyiapkan Supabase dan Admin
 
-1. Salin `.env.example` ke `.env.local`, lalu isi URL, publishable key, service-role key, dan email admin.
+1. Salin `.env.example` ke `.env.local`, lalu isi URL, publishable key, dan service-role key.
 2. Di Supabase SQL Editor, jalankan [schema.sql](supabase/schema.sql), kemudian [seed.sql](supabase/seed.sql).
-3. Masukkan email RT yang sama pada tabel admin:
+3. Buat akun RT di **Supabase Dashboard → Authentication → Users → Add user**, dengan email dan kata sandi yang akan dipakai masuk. Lalu masukkan email yang sama pada tabel admin:
 
    ```sql
    insert into public.admin_users (email) values ('email-rt-anda@example.com');
    ```
 
-4. Di Supabase Auth, masukkan URL berikut sebagai Redirect URLs:
-
-   ```text
-   http://localhost:3000/auth/callback
-   https://domain-anda/auth/callback
-   ```
-
-5. Buka `/admin`, minta magic link, lalu isi Pengaturan Penerbitan Surat. Penerbitan tetap terkunci sampai semua identitas RT dan format nomor resmi disimpan.
+4. Buka `/admin`, masuk memakai email dan kata sandi tersebut, lalu isi Pengaturan Penerbitan Surat. Penerbitan tetap terkunci sampai semua identitas RT dan format nomor resmi disimpan.
 
 `SUPABASE_SERVICE_ROLE_KEY` hanya dipakai di server dan skrip impor. Jangan pernah memasukkannya ke variabel `NEXT_PUBLIC_*`, browser, atau Git.
 

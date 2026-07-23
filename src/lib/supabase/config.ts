@@ -5,14 +5,3 @@ export function isSupabaseConfigured() {
   return Boolean(supabaseUrl && supabasePublishableKey);
 }
 
-export function getAdminEmails() {
-  return (process.env.OPAL_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-export function isAllowedAdminEmail(email: string | undefined) {
-  if (!email) return false;
-  return getAdminEmails().includes(email.toLowerCase());
-}

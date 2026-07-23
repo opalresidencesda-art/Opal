@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { isAllowedAdminEmail, isSupabaseConfigured } from "@/lib/supabase/config";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type AdminContext =
@@ -14,7 +14,8 @@ export async function getAdminContext(): Promise<AdminContext> {
   const { data: { user } } = await supabase.auth.getUser();
   const email = user?.email?.toLowerCase();
   if (!email) return { kind: "signed-out" };
-  if (!isAllowedAdminEmail(email)) return { kind: "forbidden", email };
+  const { data: admin, error } = await supabase.from("admin_users").select("email").eq("email", email).maybeSingle();
+  if (error || !admin) return { kind: "forbidden", email };
   return { kind: "admin", email };
 }
 
