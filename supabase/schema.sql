@@ -515,6 +515,11 @@ begin
     action_label := case when TG_OP = 'INSERT' then 'Rumah baru terdaftar' else 'Tautan privat rumah diperbarui' end;
     entity_label := 'tautan_rumah';
     row_id := new.id;
+  elsif TG_TABLE_NAME = 'resident_profiles' then
+    if actor = '' then return new; end if;
+    action_label := case when TG_OP = 'INSERT' then 'Profil rumah ditambahkan' else 'Profil rumah diperbarui' end;
+    entity_label := 'profil_rumah';
+    row_id := new.property_id;
   else
     return new;
   end if;
@@ -564,6 +569,8 @@ drop trigger if exists properties_access_activity_log on public.properties;
 create trigger properties_access_activity_log after update of access_token_hash, access_token_revoked_at on public.properties for each row execute function public.log_opal_activity();
 drop trigger if exists properties_created_activity_log on public.properties;
 create trigger properties_created_activity_log after insert on public.properties for each row execute function public.log_opal_activity();
+drop trigger if exists resident_profiles_activity_log on public.resident_profiles;
+create trigger resident_profiles_activity_log after insert or update on public.resident_profiles for each row execute function public.log_opal_activity();
 drop trigger if exists fee_schedules_activity_log on public.fee_schedules;
 create trigger fee_schedules_activity_log after insert on public.fee_schedules for each row execute function public.log_opal_activity();
 drop trigger if exists announcements_activity_log on public.announcements;

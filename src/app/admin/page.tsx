@@ -1,4 +1,5 @@
 import { CaretDown, CheckCircle, FileLock, GearSix, HouseLine, Receipt, SignOut, Stamp, UsersThree, Wrench } from "@phosphor-icons/react/dist/ssr";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { addAdminUser, issueServiceRequest, prepareMonthlyContributions, removeAdminUser, reviewResidentSubmission, reviewServiceRequest, saveAnnouncement, saveCashTransaction, saveDocumentSettings, saveFeeSchedule, saveFloorPlanAsset, saveGuideSection, saveHomeSpec, savePropertyContribution, saveResource, saveStaffProfile, signOut } from "@/app/admin/actions";
 import { MarkdownEditor } from "@/components/markdown-editor";
@@ -222,6 +223,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       {loadErrors.length ? <DataLoadWarning labels={loadErrors} /> : null}
       {!loadErrors.length && (!fees.length || !resources.length || !sections.length) ? <p className="mt-6 border-l-2 border-warm bg-warm px-4 py-4 text-sm leading-6 text-ink-muted">Konten awal belum ada di database. Jalankan <code className="rounded bg-surface px-1.5 py-0.5 text-ink">supabase/schema.sql</code> lalu <code className="rounded bg-surface px-1.5 py-0.5 text-ink">supabase/seed.sql</code> agar editor ini terisi.</p> : null}
       <AdminOverview pendingSubmissions={pendingSubmissionCount} pendingRequests={pendingRequestCount} pendingContributions={pendingContributionCount} issuableRequests={issuableRequestCount} activePropertyLinks={activePropertyLinkCount} documentsReady={documentsReady} cashBalance={cashBalance} lastCashTransaction={lastCashTransaction} />
+      <Link href="/admin/peta-rumah" className="group mt-7 grid gap-5 border-y border-line py-5 transition-colors hover:border-brand sm:grid-cols-[minmax(0,1fr)_repeat(4,auto)] sm:items-end sm:gap-8"><div><p className="text-sm font-extrabold text-brand-deep">OPAL Atlas</p><h2 className="mt-1 text-xl font-extrabold tracking-[-0.05em] text-ink">Peta rumah operasional</h2><p className="mt-2 max-w-xl text-sm leading-6 text-ink-muted">Telusuri denah, fokus pada satu rumah, dan perbarui profil tanpa meninggalkan konteks lingkungan.</p></div><AtlasMetric label="Rumah" value={properties.length} /><AtlasMetric label="Perlu review" value={properties.filter((property) => property.resident_submissions.some((submission) => isPending(submission.status))).length} /><AtlasMetric label="Iuran tertunda" value={pendingContributionCount} /><span className="inline-flex min-h-11 items-center justify-center rounded-full bg-action px-4 text-sm font-extrabold text-on-action transition group-hover:bg-brand">Buka peta</span></Link>
 
       <div className="mt-9 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
         <AdminNavigation />
@@ -284,8 +286,12 @@ function AdminOverview({ pendingSubmissions, pendingRequests, pendingContributio
 }
 
 function AdminNavigation() {
-  const links = [["antrean", "Antrean"], ["aktivitas", "Aktivitas"], ["surat", "Surat"], ["arsip-surat", "Arsip surat"], ["kas", "Kas"], ["rumah", "Rumah"], ["iuran", "Iuran aktif"], ["iuran-rumah", "Iuran rumah"], ["pengumuman", "Pengumuman"], ["layanan", "Layanan"], ["panduan", "Panduan"], ["fasilitas", "Fasilitas"], ["pengurus", "Pengurus"]] as const;
-  return <nav aria-label="Bagian admin" className="-mx-5 flex gap-1 overflow-x-auto border-y border-line bg-surface px-5 py-2 sm:mx-0 sm:px-0 lg:sticky lg:top-24 lg:mx-0 lg:h-fit lg:flex-col lg:gap-0 lg:overflow-visible lg:border-0 lg:bg-transparent lg:px-0 lg:py-0"><p className="sr-only lg:not-sr-only lg:mb-3 lg:px-3 lg:text-xs lg:font-extrabold lg:uppercase lg:tracking-[0.14em] lg:text-ink-faint">Navigasi</p>{links.map(([id, label]) => <a key={id} href={`#${id}`} className="shrink-0 rounded-lg px-3 py-2.5 text-sm font-bold text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">{label}</a>)}</nav>;
+  const links = [["antrean", "Antrean"], ["aktivitas", "Aktivitas"], ["surat", "Surat"], ["arsip-surat", "Arsip surat"], ["kas", "Kas"], ["peta-rumah", "Peta Rumah"], ["rumah", "Rumah"], ["iuran", "Iuran aktif"], ["iuran-rumah", "Iuran rumah"], ["pengumuman", "Pengumuman"], ["layanan", "Layanan"], ["panduan", "Panduan"], ["fasilitas", "Fasilitas"], ["pengurus", "Pengurus"]] as const;
+  return <nav aria-label="Bagian admin" className="-mx-5 flex gap-1 overflow-x-auto border-y border-line bg-surface px-5 py-2 sm:mx-0 sm:px-0 lg:sticky lg:top-24 lg:mx-0 lg:h-fit lg:flex-col lg:gap-0 lg:overflow-visible lg:border-0 lg:bg-transparent lg:px-0 lg:py-0"><p className="sr-only lg:not-sr-only lg:mb-3 lg:px-3 lg:text-xs lg:font-extrabold lg:uppercase lg:tracking-[0.14em] lg:text-ink-faint">Navigasi</p>{links.map(([id, label]) => <a key={id} href={id === "peta-rumah" ? "/admin/peta-rumah" : `#${id}`} className="shrink-0 rounded-lg px-3 py-2.5 text-sm font-bold text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">{label}</a>)}</nav>;
+}
+
+function AtlasMetric({ label, value }: { label: string; value: number }) {
+  return <span className="block sm:text-right"><span className="block text-2xl font-extrabold tracking-[-0.06em] text-ink">{value}</span><span className="mt-1 block text-xs font-bold text-ink-muted">{label}</span></span>;
 }
 
 function AdminActivityFeed({ activities }: { activities: AdminActivityRow[] }) {

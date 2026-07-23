@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import { requireAdmin } from "@/lib/admin";
 import { renderOfficialDocument, type DocumentSettings } from "@/lib/documents";
 import { formatDocumentNumber } from "@/lib/document-number";
@@ -29,8 +30,26 @@ function success(message: string) {
   revalidatePath("/layanan");
   revalidatePath("/kas");
   revalidatePath("/admin");
+  revalidatePath("/admin/peta-rumah");
   redirect(`/admin?message=${encodeURIComponent(message)}`);
 }
+
+const mapPropertySchema = z.object({
+  propertyId: z.string().uuid().optional(),
+  gang: z.coerce.number().int().refine((value) => [1, 2, 3, 5].includes(value), "Gang tidak valid."),
+  houseNumber: z.string().trim().toUpperCase().regex(/^[0-9]{1,3}$/, "Nomor rumah tidak valid."),
+  occupancyStatus: z.enum(["self", "relative", "tenant", "vacant_rent", "vacant_sale"]).nullable(),
+});
+
+const mapProfileSchema = z.object({
+  responsibleName: z.string().trim().min(2, "Nama penanggung jawab wajib diisi."),
+  responsibleAddress: z.string().trim().min(5, "Alamat wajib diisi."),
+  whatsapp: z.string().trim().regex(/^08\d{8,13}$/, "Nomor WhatsApp tidak valid."),
+  headOfHouseholdName: z.string().trim().min(2, "Nama kepala keluarga wajib diisi."),
+  headOfHouseholdOccupation: z.enum(["employee", "entrepreneur", "student"]),
+  occupantsCount: z.coerce.number().int().min(1).max(30),
+  contactEmail: z.string().trim().email("Email tidak valid."),
+});
 
 export async function signInAdmin(formData: FormData) {
   if (!isSupabaseConfigured() || !supabaseUrl || !supabasePublishableKey) redirect("/admin/login?reason=setup");
@@ -286,6 +305,82 @@ export async function createProperty(formData: FormData) {
   });
   if (error) throw new Error("Rumah tidak dapat ditambahkan. Periksa apakah unit tersebut sudah ada.");
   success("Rumah telah ditambahkan. Buat tautan privat bila ingin membagikan akses ke warga.");
+}
+
+export async function savePropertyProfile(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const property = mapPropertySchema.parse({
+    propertyId: textValue(formData, "propertyId", false) || undefined,
+    gang: textValue(formData, "gang"),
+    houseNumber: textValue(formData, "houseNumber"),
+    occupancyStatus: textValue(formData, "occupancyStatus", false) || null,
+  });
+  const profileInput = {
+    responsibleName: textValue(formData, "responsibleName", false),
+    responsibleAddress: textValue(formData, "responsibleAddress", false),
+    whatsapp: textValue(formData, "whatsapp", false),
+    headOfHouseholdName: textValue(formData, "headOfHouseholdName", false),
+    headOfHouseholdOccupation: textValue(formData, "headOfHouseholdOccupation", false),
+    occupantsCount: textValue(formData, "occupantsCount", false),
+    contactEmail: textValue(formData, "contactEmail", false),
+  };
+  const profileProvided = Object.values(profileInput).some(Boolean);
+  const parsedProfile = profileProvided ? mapProfileSchema.parse(profileInput) : null;
+  const nextUnitCode = unitCode(property.gang, property.houseNumber);
+  let propertyId = property.propertyId;
+
+  if (propertyId) {
+    const { error } = await supabase.from("properties").update({
+      unit_code: nextUnitCode,
+      gang: property.gang,
+      house_number: property.houseNumber,
+      occupancy_status: property.occupancyStatus,
+    }).eq("id", propertyId);
+    if (error) throw new Error("Rumah tidak dapat diperbarui. Pastikan kode unit belum dipakai.");
+  } else {
+    const { data, error } = await supabase.from("properties").insert({
+      unit_code: nextUnitCode,
+      gang: property.gang,
+      house_number: property.houseNumber,
+      occupancy_status: property.occupancyStatus,
+    }).select("id").single();
+    if (error || !data) throw new Error("Rumah tidak dapat ditambahkan. Pastikan kode unit belum dipakai.");
+    propertyId = data.id;
+  }
+
+  if (parsedProfile && propertyId) {
+    const { error } = await supabase.from("resident_profiles").upsert({
+      property_id: propertyId,
+      responsible_name: parsedProfile.responsibleName,
+      responsible_address: parsedProfile.responsibleAddress,
+      whatsapp: parsedProfile.whatsapp,
+      head_of_household_name: parsedProfile.headOfHouseholdName,
+      head_of_household_occupation: parsedProfile.headOfHouseholdOccupation,
+      occupants_count: parsedProfile.occupantsCount,
+      contact_email: parsedProfile.contactEmail,
+    }, { onConflict: "property_id" });
+    if (error) throw new Error("Profil keluarga tidak dapat disimpan.");
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/peta-rumah");
+  return { propertyId, unitCode: nextUnitCode, message: parsedProfile ? "Data rumah dan keluarga tersimpan." : "Rumah tersimpan. Isi data keluarga saat sudah tersedia." };
+}
+
+export async function createPropertyMapLink(propertyId: string) {
+  const { supabase } = await requireAdmin();
+  if (!z.string().uuid().safeParse(propertyId).success) throw new Error("Rumah tidak valid.");
+  const token = createAccessToken();
+  const { error } = await supabase.from("properties").update({
+    access_token_hash: hashAccessToken(token),
+    access_token_created_at: new Date().toISOString(),
+    access_token_revoked_at: null,
+  }).eq("id", propertyId);
+  if (error) throw new Error("Tautan privat rumah tidak dapat dibuat.");
+  revalidatePath("/admin");
+  revalidatePath("/admin/peta-rumah");
+  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  return { url: `${base}/rumah/${token}` };
 }
 
 export async function saveCashTransaction(formData: FormData) {
