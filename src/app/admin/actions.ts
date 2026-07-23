@@ -11,7 +11,7 @@ import { createAccessToken, hashAccessToken } from "@/lib/security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { residentSubmissionSchema } from "@/lib/validation";
+import { residentSubmissionSchema, unitCode } from "@/lib/validation";
 
 function textValue(formData: FormData, key: string, required = true) {
   const value = formData.get(key)?.toString().trim() ?? "";
@@ -47,6 +47,27 @@ export async function signInAdmin(formData: FormData) {
   }
 
   redirect("/admin");
+}
+
+export async function addAdminUser(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const email = textValue(formData, "email").toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Email pengurus tidak valid.");
+  const { error } = await supabase.from("admin_users").insert({ email });
+  if (error) throw new Error("Email pengurus tidak dapat ditambahkan. Periksa apakah email sudah terdaftar.");
+  success("Email pengurus telah diberi akses admin. Buat akun email/password-nya di Supabase Authentication bila belum ada.");
+}
+
+export async function removeAdminUser(formData: FormData) {
+  const { supabase, email: currentEmail } = await requireAdmin();
+  const email = textValue(formData, "email").toLowerCase();
+  if (email === currentEmail) throw new Error("Untuk keamanan, Anda tidak dapat mencabut akses akun yang sedang dipakai.");
+  const { count, error: countError } = await supabase.from("admin_users").select("email", { count: "exact", head: true });
+  if (countError) throw new Error("Daftar pengurus tidak dapat diperiksa.");
+  if ((count ?? 0) <= 1) throw new Error("Setidaknya satu akun admin harus tetap aktif.");
+  const { error } = await supabase.from("admin_users").delete().eq("email", email);
+  if (error) throw new Error("Akses pengurus tidak dapat dicabut.");
+  success("Akses admin pengurus telah dicabut.");
 }
 
 export async function saveFeeSchedule(formData: FormData) {
@@ -253,22 +274,113 @@ export async function revokePropertyLink(formData: FormData) {
   success("Tautan privat rumah telah dicabut.");
 }
 
+export async function createProperty(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const gang = Number(textValue(formData, "gang"));
+  const houseNumber = textValue(formData, "houseNumber").toUpperCase();
+  if (![1, 2, 3, 5].includes(gang) || !/^[0-9A-Z/-]{1,8}$/.test(houseNumber)) throw new Error("Gang atau nomor rumah tidak valid.");
+  const { error } = await supabase.from("properties").insert({
+    unit_code: unitCode(gang, houseNumber),
+    gang,
+    house_number: houseNumber,
+  });
+  if (error) throw new Error("Rumah tidak dapat ditambahkan. Periksa apakah unit tersebut sudah ada.");
+  success("Rumah telah ditambahkan. Buat tautan privat bila ingin membagikan akses ke warga.");
+}
+
 export async function saveCashTransaction(formData: FormData) {
   const { supabase } = await requireAdmin();
+  const id = textValue(formData, "id", false);
   const amount = Number(textValue(formData, "amountRupiah"));
   const direction = textValue(formData, "direction");
   if (!Number.isInteger(amount) || amount < 1 || amount > 1_000_000_000) throw new Error("Nominal Kas tidak valid.");
   if (direction !== "income" && direction !== "expense") throw new Error("Arah transaksi tidak valid.");
-  const { error } = await supabase.from("cash_transactions").insert({
+  const payload = {
     transaction_date: textValue(formData, "transactionDate"),
     category: textValue(formData, "category"),
     description: textValue(formData, "description", false),
     direction,
     amount_rupiah: amount,
     is_public: boolValue(formData, "isPublic"),
-  });
+  };
+  if (id) {
+    const { error } = await supabase.rpc("update_cash_transaction_with_revision", {
+      p_id: id,
+      p_transaction_date: payload.transaction_date,
+      p_category: payload.category,
+      p_description: payload.description,
+      p_direction: payload.direction,
+      p_amount_rupiah: payload.amount_rupiah,
+      p_is_public: payload.is_public,
+    });
+    if (error) throw new Error("Koreksi transaksi Kas tidak dapat disimpan beserta riwayatnya.");
+    return success("Koreksi transaksi Kas telah disimpan beserta riwayat sebelumnya.");
+  }
+  const { error } = await supabase.from("cash_transactions").insert(payload);
   if (error) throw new Error("Transaksi Kas tidak dapat disimpan.");
   success("Transaksi Kas telah disimpan.");
+}
+
+export async function savePropertyContribution(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = textValue(formData, "id", false);
+  const amount = Number(textValue(formData, "amountRupiah"));
+  const status = textValue(formData, "status");
+  const periodMonth = textValue(formData, "periodMonth");
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodMonth)) throw new Error("Periode iuran tidak valid.");
+  if (!Number.isInteger(amount) || amount < 1 || amount > 10_000_000) throw new Error("Nominal iuran rumah tidak valid.");
+  if (!['paid', 'pending', 'waived'].includes(status)) throw new Error("Status iuran rumah tidak valid.");
+  const payload = {
+    category: textValue(formData, "category"),
+    period: `${periodMonth}-01`,
+    amount_rupiah: amount,
+    paid_at: status === "paid" ? textValue(formData, "paidAt") : null,
+    status,
+  };
+  if (id) {
+    const { error } = await supabase.from("property_contributions").update(payload).eq("id", id);
+    if (error) throw new Error("Catatan iuran rumah tidak dapat diperbarui.");
+    return success("Catatan iuran rumah telah diperbarui.");
+  }
+  const unitCode = textValue(formData, "unitCode");
+  const { data: property, error: propertyError } = await supabase.from("properties").select("id").eq("unit_code", unitCode).maybeSingle();
+  if (propertyError || !property) throw new Error("Unit rumah tidak ditemukan. Pilih unit dari daftar.");
+  const { error } = await supabase.from("property_contributions").insert({ ...payload, property_id: property.id, source_reference: "manual" });
+  if (error) throw new Error("Catatan iuran rumah tidak dapat disimpan. Periksa apakah periode yang sama sudah dicatat.");
+  success("Catatan iuran rumah telah disimpan.");
+}
+
+export async function prepareMonthlyContributions(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const category = textValue(formData, "category");
+  const amount = Number(textValue(formData, "amountRupiah"));
+  const periodMonth = textValue(formData, "periodMonth");
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodMonth)) throw new Error("Periode iuran tidak valid.");
+  if (!Number.isInteger(amount) || amount < 1 || amount > 10_000_000) throw new Error("Nominal iuran rumah tidak valid.");
+  const period = `${periodMonth}-01`;
+  const [{ data: properties, error: propertiesError }, { data: existing, error: existingError }] = await Promise.all([
+    supabase.from("properties").select("id").eq("active", true),
+    supabase.from("property_contributions").select("property_id").eq("category", category).eq("period", period),
+  ]);
+  if (propertiesError || existingError) throw new Error("Data rumah atau iuran tidak dapat dimuat.");
+  if (!properties?.length) throw new Error("Belum ada rumah aktif untuk dibuatkan iuran.");
+  const existingPropertyIds = new Set((existing ?? []).map((item) => item.property_id));
+  const sourceReference = `dashboard-bulk:${periodMonth}:${category.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
+  const rows = properties.filter((property) => !existingPropertyIds.has(property.id)).map((property) => ({
+    property_id: property.id,
+    category,
+    period,
+    amount_rupiah: amount,
+    status: "pending",
+    source_reference: sourceReference,
+  }));
+  if (!rows.length) return success("Iuran untuk periode ini sudah tercatat pada semua rumah aktif.");
+  const { error } = await supabase.from("property_contributions").upsert(rows, {
+    onConflict: "property_id,category,period,amount_rupiah,source_reference",
+    ignoreDuplicates: true,
+  });
+  if (error) throw new Error("Tagihan iuran belum dapat disiapkan.");
+  success(`${rows.length} tagihan iuran berstatus belum dibayar telah disiapkan.`);
 }
 
 export async function saveStaffProfile(formData: FormData) {

@@ -18,10 +18,19 @@ export async function POST(request: Request) {
 
   const supabase = createSupabaseAdminClient();
   const code = unitCode(values.data.gang, values.data.houseNumber);
-  const { data: property } = await supabase.from("properties").select("id").eq("unit_code", code).maybeSingle();
+  const { data: existingProperty, error: propertyLookupError } = await supabase.from("properties").select("id").eq("unit_code", code).maybeSingle();
+  if (propertyLookupError) return NextResponse.json({ error: "Unit rumah tidak dapat disiapkan." }, { status: 500 });
+  const { data: property, error: propertyError } = existingProperty
+    ? { data: existingProperty, error: null }
+    : await supabase
+      .from("properties")
+      .insert({ unit_code: code, gang: values.data.gang, house_number: values.data.houseNumber.trim().toUpperCase() })
+      .select("id")
+      .single();
+  if (propertyError || !property) return NextResponse.json({ error: "Unit rumah tidak dapat disiapkan." }, { status: 500 });
   const { data: requestRow, error } = await supabase.from("service_requests").insert({
     request_type: envelope.data.type,
-    property_id: property?.id ?? null,
+    property_id: property.id,
     contact_name: values.data.contactName,
     contact_email: values.data.contactEmail,
     contact_whatsapp: values.data.contactWhatsapp,

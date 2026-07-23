@@ -293,6 +293,60 @@ create table if not exists public.cash_transactions (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.cash_transaction_revisions (
+  id uuid primary key default gen_random_uuid(),
+  transaction_id uuid not null references public.cash_transactions(id) on delete cascade,
+  snapshot jsonb not null,
+  changed_by text not null,
+  changed_at timestamptz not null default now()
+);
+
+create table if not exists public.admin_activity (
+  id uuid primary key default gen_random_uuid(),
+  actor_email text not null,
+  action text not null,
+  entity_type text not null,
+  entity_id uuid,
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.update_cash_transaction_with_revision(
+  p_id uuid,
+  p_transaction_date date,
+  p_category text,
+  p_description text,
+  p_direction text,
+  p_amount_rupiah integer,
+  p_is_public boolean
+)
+returns void
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  current_row public.cash_transactions%rowtype;
+begin
+  if not public.is_opal_admin() then raise exception 'not authorized'; end if;
+  select * into current_row from public.cash_transactions where id = p_id for update;
+  if not found then raise exception 'cash transaction not found'; end if;
+
+  insert into public.cash_transaction_revisions (transaction_id, snapshot, changed_by)
+  values (p_id, to_jsonb(current_row), lower(coalesce(auth.jwt() ->> 'email', 'sistem')));
+
+  update public.cash_transactions
+  set transaction_date = p_transaction_date,
+      category = p_category,
+      description = p_description,
+      direction = p_direction,
+      amount_rupiah = p_amount_rupiah,
+      is_public = p_is_public
+  where id = p_id;
+end;
+$$;
+
+grant execute on function public.update_cash_transaction_with_revision(uuid, date, text, text, text, integer, boolean) to authenticated;
+
 create table if not exists public.property_contributions (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
@@ -377,6 +431,156 @@ create trigger home_specs_set_updated_at before update on public.home_specs for 
 drop trigger if exists floor_plan_assets_set_updated_at on public.floor_plan_assets;
 create trigger floor_plan_assets_set_updated_at before update on public.floor_plan_assets for each row execute function public.set_updated_at();
 
+create or replace function public.log_opal_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actor text := lower(coalesce(auth.jwt() ->> 'email', ''));
+  actor_label text;
+  action_label text;
+  entity_label text;
+  row_id uuid;
+begin
+  if TG_TABLE_NAME = 'resident_submissions' then
+    if TG_OP = 'INSERT' and new.status <> 'submitted' then return new; end if;
+    if TG_OP = 'UPDATE' then
+      if old.status is not distinct from new.status then return new; end if;
+    end if;
+    action_label := case when new.status = 'submitted' then 'Pendataan warga dikirim' else 'Status pendataan diperbarui' end;
+    entity_label := 'pendataan_warga';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'service_requests' then
+    if TG_OP = 'UPDATE' then
+      if old.status is not distinct from new.status then return new; end if;
+    end if;
+    action_label := case when TG_OP = 'INSERT' then 'Permohonan surat dikirim' else 'Status permohonan surat diperbarui' end;
+    entity_label := 'permohonan_surat';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'document_issuances' then
+    action_label := 'Surat resmi diterbitkan';
+    entity_label := 'penerbitan_surat';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'cash_transactions' then
+    action_label := case when TG_OP = 'INSERT' then 'Transaksi Kas dicatat' else 'Transaksi Kas dikoreksi' end;
+    entity_label := 'transaksi_kas';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'property_contributions' then
+    action_label := case when TG_OP = 'INSERT' then 'Iuran rumah dicatat' else 'Catatan iuran rumah diperbarui' end;
+    entity_label := 'iuran_rumah';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'fee_schedules' then
+    if actor = '' then return new; end if;
+    action_label := 'Jadwal iuran diaktifkan';
+    entity_label := 'jadwal_iuran';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'announcements' then
+    if actor = '' then return new; end if;
+    action_label := case when TG_OP = 'INSERT' then 'Pengumuman dibuat' else 'Pengumuman diperbarui' end;
+    entity_label := 'pengumuman';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'resources' then
+    if actor = '' then return new; end if;
+    action_label := case when TG_OP = 'INSERT' then 'Layanan ditambahkan' else 'Layanan diperbarui' end;
+    entity_label := 'layanan';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'guide_sections' then
+    if actor = '' then return new; end if;
+    action_label := 'Panduan harmonis diperbarui';
+    entity_label := 'panduan';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'staff_profiles' then
+    if actor = '' then return new; end if;
+    action_label := case when TG_OP = 'INSERT' then 'Profil petugas ditambahkan' else 'Profil petugas diperbarui' end;
+    entity_label := 'petugas';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'home_specs' then
+    if actor = '' then return new; end if;
+    action_label := case when TG_OP = 'INSERT' then 'Spesifikasi rumah ditambahkan' else 'Spesifikasi rumah diperbarui' end;
+    entity_label := 'spesifikasi_rumah';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'floor_plan_assets' then
+    if actor = '' then return new; end if;
+    action_label := case when TG_OP = 'INSERT' then 'Denah ditambahkan' else 'Denah diperbarui' end;
+    entity_label := 'denah';
+    row_id := new.id;
+  elsif TG_TABLE_NAME = 'document_settings' then
+    if actor = '' then return new; end if;
+    action_label := 'Pengaturan penerbitan surat diperbarui';
+    entity_label := 'pengaturan_surat';
+    row_id := null;
+  elsif TG_TABLE_NAME = 'properties' then
+    action_label := case when TG_OP = 'INSERT' then 'Rumah baru terdaftar' else 'Tautan privat rumah diperbarui' end;
+    entity_label := 'tautan_rumah';
+    row_id := new.id;
+  else
+    return new;
+  end if;
+
+  actor_label := coalesce(nullif(actor, ''), case when TG_OP = 'INSERT' and TG_TABLE_NAME in ('resident_submissions', 'service_requests') then 'Warga' else 'Sistem' end);
+
+  insert into public.admin_activity (actor_email, action, entity_type, entity_id)
+  values (actor_label, action_label, entity_label, row_id);
+  return new;
+end;
+$$;
+
+create or replace function public.log_opal_admin_access_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actor text := lower(coalesce(auth.jwt() ->> 'email', ''));
+  target_email text := case when TG_OP = 'DELETE' then old.email else new.email end;
+begin
+  insert into public.admin_activity (actor_email, action, entity_type)
+  values (
+    coalesce(nullif(actor, ''), 'Sistem'),
+    case when TG_OP = 'DELETE' then 'Akses admin dicabut untuk ' || target_email else 'Akses admin diberikan untuk ' || target_email end,
+    'akses_pengurus'
+  );
+  if TG_OP = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists resident_submissions_activity_log on public.resident_submissions;
+create trigger resident_submissions_activity_log after insert or update on public.resident_submissions for each row execute function public.log_opal_activity();
+drop trigger if exists service_requests_activity_log on public.service_requests;
+create trigger service_requests_activity_log after insert or update on public.service_requests for each row execute function public.log_opal_activity();
+drop trigger if exists document_issuances_activity_log on public.document_issuances;
+create trigger document_issuances_activity_log after insert on public.document_issuances for each row execute function public.log_opal_activity();
+drop trigger if exists cash_transactions_activity_log on public.cash_transactions;
+create trigger cash_transactions_activity_log after insert or update on public.cash_transactions for each row execute function public.log_opal_activity();
+drop trigger if exists property_contributions_activity_log on public.property_contributions;
+create trigger property_contributions_activity_log after insert or update on public.property_contributions for each row execute function public.log_opal_activity();
+drop trigger if exists document_settings_activity_log on public.document_settings;
+create trigger document_settings_activity_log after insert or update on public.document_settings for each row execute function public.log_opal_activity();
+drop trigger if exists properties_access_activity_log on public.properties;
+create trigger properties_access_activity_log after update of access_token_hash, access_token_revoked_at on public.properties for each row execute function public.log_opal_activity();
+drop trigger if exists properties_created_activity_log on public.properties;
+create trigger properties_created_activity_log after insert on public.properties for each row execute function public.log_opal_activity();
+drop trigger if exists fee_schedules_activity_log on public.fee_schedules;
+create trigger fee_schedules_activity_log after insert on public.fee_schedules for each row execute function public.log_opal_activity();
+drop trigger if exists announcements_activity_log on public.announcements;
+create trigger announcements_activity_log after insert or update on public.announcements for each row execute function public.log_opal_activity();
+drop trigger if exists resources_activity_log on public.resources;
+create trigger resources_activity_log after insert or update on public.resources for each row execute function public.log_opal_activity();
+drop trigger if exists guide_sections_activity_log on public.guide_sections;
+create trigger guide_sections_activity_log after update on public.guide_sections for each row execute function public.log_opal_activity();
+drop trigger if exists staff_profiles_activity_log on public.staff_profiles;
+create trigger staff_profiles_activity_log after insert or update on public.staff_profiles for each row execute function public.log_opal_activity();
+drop trigger if exists home_specs_activity_log on public.home_specs;
+create trigger home_specs_activity_log after insert or update on public.home_specs for each row execute function public.log_opal_activity();
+drop trigger if exists floor_plan_assets_activity_log on public.floor_plan_assets;
+create trigger floor_plan_assets_activity_log after insert or update on public.floor_plan_assets for each row execute function public.log_opal_activity();
+drop trigger if exists admin_users_activity_log on public.admin_users;
+create trigger admin_users_activity_log after insert or delete on public.admin_users for each row execute function public.log_opal_admin_access_activity();
+
 alter table public.properties enable row level security;
 alter table public.resident_profiles enable row level security;
 alter table public.resident_submissions enable row level security;
@@ -386,6 +590,8 @@ alter table public.document_settings enable row level security;
 alter table public.document_sequences enable row level security;
 alter table public.document_issuances enable row level security;
 alter table public.cash_transactions enable row level security;
+alter table public.cash_transaction_revisions enable row level security;
+alter table public.admin_activity enable row level security;
 alter table public.property_contributions enable row level security;
 alter table public.staff_profiles enable row level security;
 alter table public.home_specs enable row level security;
@@ -413,6 +619,12 @@ drop policy if exists "Public reads published cash transactions" on public.cash_
 create policy "Public reads published cash transactions" on public.cash_transactions for select using (is_public or public.is_opal_admin());
 drop policy if exists "Admins manage cash transactions" on public.cash_transactions;
 create policy "Admins manage cash transactions" on public.cash_transactions for all using (public.is_opal_admin()) with check (public.is_opal_admin());
+drop policy if exists "Admins read cash transaction revisions" on public.cash_transaction_revisions;
+create policy "Admins read cash transaction revisions" on public.cash_transaction_revisions for select using (public.is_opal_admin());
+drop policy if exists "Admins create cash transaction revisions" on public.cash_transaction_revisions;
+create policy "Admins create cash transaction revisions" on public.cash_transaction_revisions for insert with check (public.is_opal_admin());
+drop policy if exists "Admins read activity" on public.admin_activity;
+create policy "Admins read activity" on public.admin_activity for select using (public.is_opal_admin());
 drop policy if exists "Admins manage property contributions" on public.property_contributions;
 create policy "Admins manage property contributions" on public.property_contributions for all using (public.is_opal_admin()) with check (public.is_opal_admin());
 drop policy if exists "Public reads published staff" on public.staff_profiles;

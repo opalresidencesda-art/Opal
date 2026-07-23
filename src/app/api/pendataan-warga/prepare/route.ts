@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     ? { data: existingProperty, error: null }
     : await supabase
       .from("properties")
-      .insert({ unit_code: code, gang: values.gang, house_number: values.houseNumber.trim(), occupancy_status: values.houseStatus })
+      .insert({ unit_code: code, gang: values.gang, house_number: values.houseNumber.trim().toUpperCase(), occupancy_status: values.houseStatus })
     .select("id")
     .single();
   if (propertyError || !property) return NextResponse.json({ error: "Unit rumah tidak dapat disiapkan." }, { status: 500 });

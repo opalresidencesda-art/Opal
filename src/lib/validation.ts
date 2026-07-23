@@ -86,5 +86,5 @@ export function requestSchemaFor(type: (typeof documentRequestTypes)[number]) {
 export type DocumentRequestInput = z.infer<typeof moveRequestSchema> | z.infer<typeof domicileRequestSchema> | z.infer<typeof singleRequestSchema>;
 
 export function unitCode(gang: number, houseNumber: string) {
-  return `OP ${gang} - ${houseNumber.trim().padStart(2, "0")}`;
+  return `OP ${gang} - ${houseNumber.trim().toUpperCase().padStart(2, "0")}`;
 }
