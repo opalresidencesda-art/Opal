@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPropertyMapLink, removePropertyMapPosition, savePropertyMapPosition, savePropertyProfile } from "@/app/admin/actions";
 import { shouldZoomMapFromWheel } from "@/lib/opal-map-gesture";
-import { mapStatus, OPAL_ATLAS_CENTER, OPAL_ATLAS_DEFAULT_ZOOM, searchProperties, streetForGang, type PropertyMapStatus, type PropertyMapSummary, unplacedProperties } from "@/lib/opal-map-layout";
+import { mapStatus, OPAL_ATLAS_CENTER, OPAL_ATLAS_DEFAULT_ZOOM, OPAL_ATLAS_MAX_ZOOM, OPAL_ATLAS_MIN_ZOOM, OPAL_MAP_SLOTS, propertyMatchesSlot, searchMapSlots, searchProperties, slotCoordinate, streetForGang, type MapSlot, type PropertyMapStatus, type PropertyMapSummary, unplacedProperties } from "@/lib/opal-map-layout";
 
 type MapFilter = "all" | PropertyMapStatus;
 type InspectorTab = "summary" | "family" | "contributions" | "history";
@@ -18,12 +18,12 @@ type Coordinates = { lat: number; lng: number };
 const atlasStyles: Record<"satellite" | "roadmap", StyleSpecification> = {
   satellite: {
     version: 8,
-    sources: { imagery: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, attribution: "© Esri, Maxar, Earthstar Geographics" } },
+    sources: { imagery: { type: "raster", tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"], tileSize: 256, maxzoom: OPAL_ATLAS_MAX_ZOOM, attribution: "© Esri, Maxar, Earthstar Geographics" } },
     layers: [{ id: "imagery", type: "raster", source: "imagery" }],
   },
   roadmap: {
     version: 8,
-    sources: { streets: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" } },
+    sources: { streets: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, maxzoom: OPAL_ATLAS_MAX_ZOOM, attribution: "© OpenStreetMap contributors" } },
     layers: [{ id: "streets", type: "raster", source: "streets" }],
   },
 };
@@ -43,16 +43,20 @@ function newest<T extends { createdAt?: string; period?: string | null }>(items:
 export function AdminPropertyMap({ properties, initialUnit }: { properties: PropertyMapSummary[]; initialUnit?: string }) {
   const router = useRouter();
   const mapElement = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const calibrationRef = useRef({ enabled: false, targetId: null as string | null });
   const [map, setMap] = useState<maplibregl.Map | null>(null);
+  const [mapZoom, setMapZoom] = useState(OPAL_ATLAS_DEFAULT_ZOOM);
   const reducedMotion = useReducedMotion();
   const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MapFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(() => properties.find((property) => property.unitCode === initialUnit)?.id ?? null);
+  const [selectedSlot, setSelectedSlot] = useState<MapSlot | null>(null);
   const [mapType, setMapType] = useState<"satellite" | "roadmap">("satellite");
+  const [showGuide, setShowGuide] = useState(true);
   const [calibrating, setCalibrating] = useState(false);
   const [calibrationTargetId, setCalibrationTargetId] = useState<string | null>(null);
   const [pendingPosition, setPendingPosition] = useState<Coordinates | null>(null);
@@ -61,21 +65,34 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
   useEffect(() => { calibrationRef.current = { enabled: calibrating, targetId: calibrationTargetId }; }, [calibrating, calibrationTargetId]);
   const propertyById = useMemo(() => new Map(properties.map((property) => [property.id, property])), [properties]);
   const selected = selectedId ? propertyById.get(selectedId) ?? null : null;
+  const propertyForSlot = useCallback((slot: MapSlot) => properties.find((property) => propertyMatchesSlot(property, slot)) ?? null, [properties]);
   const searchResults = useMemo(() => searchProperties(properties, query), [properties, query]);
+  const emptySlotResults = useMemo(() => searchMapSlots(query).filter((slot) => !propertyForSlot(slot)), [propertyForSlot, query]);
   const unplaced = useMemo(() => unplacedProperties(properties), [properties]);
   const visibleProperties = useMemo(() => properties.filter((property) => filter === "all" || statusOf(property) === filter), [filter, properties]);
   const calibratedCount = properties.length - unplaced.length;
 
   const selectProperty = useCallback((property: PropertyMapSummary, open = true) => {
     setSelectedId(property.id);
+    setSelectedSlot(null);
     if (property.position && map) {
       const center = { lat: property.position.latitude, lng: property.position.longitude };
-      const camera = { center, zoom: Math.max(map.getZoom(), 20) };
+      const camera = { center, zoom: Math.min(OPAL_ATLAS_MAX_ZOOM, Math.max(map.getZoom(), OPAL_ATLAS_DEFAULT_ZOOM)) };
       if (reducedMotion) map.jumpTo(camera); else map.flyTo({ ...camera, essential: true, duration: 680 });
     }
     router.replace(`/admin/peta-rumah?unit=${encodeURIComponent(property.unitCode)}`, { scroll: false });
     if (!open) return;
   }, [map, reducedMotion, router]);
+
+  const selectSlot = useCallback((slot: MapSlot) => {
+    const property = propertyForSlot(slot);
+    if (property) { selectProperty(property); return; }
+    setSelectedId(null);
+    setSelectedSlot(slot);
+    const center = slotCoordinate(slot);
+    const camera = { center: [center.longitude, center.latitude] as [number, number], zoom: OPAL_ATLAS_DEFAULT_ZOOM };
+    if (reducedMotion) map?.jumpTo(camera); else map?.flyTo({ ...camera, essential: true, duration: 460 });
+  }, [map, propertyForSlot, reducedMotion, selectProperty]);
 
   useEffect(() => {
     if (!initialUnit) return;
@@ -83,7 +100,7 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
     if (!property) return;
     if (property.position && map) {
       const center = { lat: property.position.latitude, lng: property.position.longitude };
-      const camera = { center, zoom: Math.max(map.getZoom(), 20) };
+      const camera = { center, zoom: Math.min(OPAL_ATLAS_MAX_ZOOM, Math.max(map.getZoom(), OPAL_ATLAS_DEFAULT_ZOOM)) };
       if (reducedMotion) map.jumpTo(camera); else map.flyTo({ ...camera, essential: true, duration: 680 });
     }
   }, [initialUnit, map, properties, reducedMotion]);
@@ -96,6 +113,8 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
         style: atlasStyles.satellite,
         center: [OPAL_ATLAS_CENTER.lng, OPAL_ATLAS_CENTER.lat],
         zoom: OPAL_ATLAS_DEFAULT_ZOOM,
+        minZoom: OPAL_ATLAS_MIN_ZOOM,
+        maxZoom: OPAL_ATLAS_MAX_ZOOM,
         cooperativeGestures: true,
         maxPitch: 0,
       });
@@ -103,9 +122,13 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
       nextMap.dragPan.enable();
       nextMap.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
       nextMap.on("click", (event: MapMouseEvent) => {
-        if (!calibrationRef.current.enabled || !calibrationRef.current.targetId) return;
+        if (!calibrationRef.current.enabled) {
+          setCalibrating(true);
+          setShowGuide(false);
+        }
         setPendingPosition({ lat: event.lngLat.lat, lng: event.lngLat.lng });
       });
+      nextMap.on("zoomend", () => setMapZoom(nextMap.getZoom()));
       nextMap.on("error", () => setLoadError("Citra peta belum dapat dimuat. Periksa koneksi internet lalu coba lagi."));
       mapRef.current = nextMap;
       setMap(nextMap);
@@ -135,9 +158,17 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
       const close = map.getZoom() >= 18.4;
       markers.forEach((marker) => {
         const kind = marker.getElement().dataset.atlasKind;
-        marker.getElement().style.display = kind === "unit" ? (close ? "block" : "none") : (close ? "none" : "block");
+        marker.getElement().style.display = kind === "cluster" || kind === "pending" ? "block" : kind === "unit" || kind === "slot" ? (close ? "block" : "none") : (close ? "none" : "block");
       });
     };
+    const clusterLabel = document.createElement("button");
+    clusterLabel.type = "button";
+    clusterLabel.dataset.atlasKind = "cluster";
+    clusterLabel.textContent = "OPAL Residence";
+    clusterLabel.setAttribute("aria-label", "Pusat Cluster OPAL. Klik untuk kembali ke tampilan awal peta.");
+    clusterLabel.style.cssText = "border:1px solid rgba(255,255,255,.96);border-radius:9px;background:rgba(7,43,35,.94);padding:7px 10px;color:white;font:800 11px Manrope,system-ui,sans-serif;letter-spacing:.01em;box-shadow:0 6px 20px rgba(0,0,0,.26);cursor:pointer;";
+    clusterLabel.addEventListener("click", (event) => { event.stopPropagation(); map.jumpTo({ center: [OPAL_ATLAS_CENTER.lng, OPAL_ATLAS_CENTER.lat], zoom: OPAL_ATLAS_DEFAULT_ZOOM }); });
+    markers.push(new maplibregl.Marker({ element: clusterLabel, anchor: "bottom" }).setLngLat([OPAL_ATLAS_CENTER.lng, OPAL_ATLAS_CENTER.lat]).addTo(map));
     visibleProperties.filter((property) => property.position).forEach((property) => {
       const meta = statusMeta[statusOf(property)];
       const button = document.createElement("button");
@@ -145,15 +176,42 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
       button.setAttribute("aria-label", `${property.unitCode}, ${meta.label}`); button.textContent = property.houseNumber;
       button.style.cssText = `min-width:30px;height:25px;padding:0 7px;border:1px solid rgba(255,255,255,.95);border-bottom:3px solid ${meta.color};border-radius:7px;background:rgba(255,255,255,.96);color:#12352f;font:800 11px Manrope,system-ui,sans-serif;box-shadow:0 3px 12px rgba(5,37,29,.28);cursor:pointer;transition:${reducedMotion ? "none" : "transform .18s ease,box-shadow .18s ease"};`;
       button.addEventListener("mouseenter", () => { button.style.transform = "translateY(-3px) scale(1.08)"; }); button.addEventListener("mouseleave", () => { button.style.transform = ""; });
-      button.addEventListener("click", () => { selectProperty(property); if (calibrating) setCalibrationTargetId(property.id); });
+      button.addEventListener("click", (event) => { event.stopPropagation(); selectProperty(property); if (calibrating) setCalibrationTargetId(property.id); });
       markers.push(new maplibregl.Marker({ element: button, anchor: "bottom" }).setLngLat([property.position!.longitude, property.position!.latitude]).addTo(map));
     });
+    OPAL_MAP_SLOTS.forEach((slot) => {
+      const property = propertyForSlot(slot);
+      if (property?.position || (property && filter !== "all" && statusOf(property) !== filter)) return;
+      const meta = property ? statusMeta[statusOf(property)] : statusMeta.missing;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.atlasKind = "slot";
+      button.title = `${streetForGang(slot.gang).name}, No. ${slot.houseNumber}${property ? ` · ${meta.label}` : " · belum ada data"}`;
+      button.setAttribute("aria-label", `${slot.unitCode}. ${property ? meta.label : "Belum ada data. Klik untuk menambahkan rumah."}`);
+      button.textContent = slot.houseNumber;
+      button.style.cssText = `min-width:20px;height:18px;padding:0 3px;border:1px solid rgba(255,255,255,.92);border-bottom:2px solid ${meta.color};border-radius:5px;background:${property ? "rgba(255,255,255,.94)" : "rgba(238,243,240,.88)"};color:#12352f;font:800 8px Manrope,system-ui,sans-serif;line-height:1;box-shadow:0 2px 8px rgba(5,37,29,.2);cursor:pointer;transition:${reducedMotion ? "none" : "transform .16s ease, background .16s ease"};`;
+      button.addEventListener("mouseenter", () => { button.style.transform = "translateY(-2px) scale(1.16)"; button.style.background = "rgba(255,255,255,.99)"; });
+      button.addEventListener("mouseleave", () => { button.style.transform = ""; button.style.background = property ? "rgba(255,255,255,.94)" : "rgba(238,243,240,.88)"; });
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        selectSlot(slot);
+      });
+      const point = slotCoordinate(slot);
+      markers.push(new maplibregl.Marker({ element: button, anchor: "center" }).setLngLat([point.longitude, point.latitude]).addTo(map));
+    });
+    if (pendingPosition) {
+      const selectedPoint = document.createElement("div");
+      selectedPoint.dataset.atlasKind = "pending";
+      selectedPoint.textContent = "Bangunan dipilih";
+      selectedPoint.style.cssText = "border:2px solid #fff;border-radius:999px;background:#bd7b1b;padding:7px 10px;color:#fff;font:800 11px Manrope,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.28);";
+      markers.push(new maplibregl.Marker({ element: selectedPoint, anchor: "bottom" }).setLngLat([pendingPosition.lng, pendingPosition.lat]).addTo(map));
+    }
     [1, 2, 3, 5].forEach((gang) => {
-      const onStreet = visibleProperties.filter((property) => property.gang === gang && property.position);
-      if (!onStreet.length) return;
-      const latitude = onStreet.reduce((total, property) => total + property.position!.latitude, 0) / onStreet.length;
-      const longitude = onStreet.reduce((total, property) => total + property.position!.longitude, 0) / onStreet.length;
-      const numbers = onStreet.map((property) => Number(property.houseNumber)).filter(Number.isFinite).sort((a, b) => a - b);
+      const onStreet = OPAL_MAP_SLOTS.filter((slot) => slot.gang === gang);
+      const points = onStreet.map(slotCoordinate);
+      const latitude = points.reduce((total, point) => total + point.latitude, 0) / points.length;
+      const longitude = points.reduce((total, point) => total + point.longitude, 0) / points.length;
+      const numbers = onStreet.map((slot) => Number(slot.houseNumber)).filter(Number.isFinite).sort((a, b) => a - b);
       const label = document.createElement("div"); label.dataset.atlasKind = "range";
       label.textContent = `${streetForGang(gang).shortName}  ${String(numbers[0]).padStart(2, "0")}–${String(numbers[numbers.length - 1]).padStart(2, "0")}`;
       label.style.cssText = "white-space:nowrap;border-radius:999px;background:rgba(10,36,31,.84);padding:6px 9px;color:white;font:800 10px Manrope,system-ui,sans-serif;letter-spacing:.04em;box-shadow:0 5px 18px rgba(0,0,0,.22);pointer-events:none;";
@@ -161,12 +219,12 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
     });
     markersRef.current = markers; updateLabelVisibility(); map.on("zoom", updateLabelVisibility);
     return () => { map.off("zoom", updateLabelVisibility); markers.forEach((marker) => marker.remove()); };
-  }, [calibrating, map, reducedMotion, selectProperty, visibleProperties]);
+  }, [calibrating, filter, map, pendingPosition, propertyForSlot, reducedMotion, selectProperty, selectSlot, visibleProperties]);
 
   function enterSearch(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key !== "Enter" || !searchResults[0]) return;
+    if (event.key !== "Enter" || (!searchResults[0] && !emptySlotResults[0])) return;
     event.preventDefault();
-    selectProperty(searchResults[0]);
+    if (searchResults[0]) selectProperty(searchResults[0]); else if (emptySlotResults[0]) selectSlot(emptySlotResults[0]);
     setQuery("");
   }
 
@@ -191,28 +249,45 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
           <div className="flex items-center gap-2 text-xs font-bold text-ink-muted"><MapPin size={16} weight="fill" className="text-brand" />Cluster OPAL · Citra satelit</div>
         </header>
         <div className="relative grid gap-3 border-b border-[#d7e2dc] bg-[#f4f8f5] p-3 lg:grid-cols-[minmax(18rem,1fr)_auto_auto] lg:px-5">
-          <label className="relative block"><MagnifyingGlass size={18} weight="bold" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-brand" /><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={enterSearch} type="search" placeholder="Cari 14, DS II 14, OP 3 - 14, atau nama" className="min-h-11 w-full rounded-xl border border-[#cddbd5] bg-white px-4 pl-10 text-sm font-semibold text-ink outline-none placeholder:text-ink-faint focus:border-brand focus:ring-3 focus:ring-brand/15" /></label>
+          <label className="relative block"><MagnifyingGlass size={18} weight="bold" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-brand" /><input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={enterSearch} type="search" placeholder="Cari 14, DS II 14, OP 3 - 14, atau nama" className="min-h-11 w-full rounded-xl border border-[#cddbd5] bg-white px-4 pl-10 text-sm font-semibold text-ink outline-none placeholder:text-ink-faint focus:border-brand focus:ring-3 focus:ring-brand/15" /></label>
           <div className="flex overflow-x-auto rounded-xl border border-[#cddbd5] bg-white p-1">{(["all", "attention", "verified", "missing", "vacant"] as MapFilter[]).map((item) => <button key={item} type="button" onClick={() => setFilter(item)} className={`min-h-9 shrink-0 rounded-lg px-3 text-xs font-extrabold ${filter === item ? "bg-action text-on-action" : "text-ink-muted hover:text-brand-deep"}`}>{item === "all" ? "Semua" : statusMeta[item].label}</button>)}</div>
-          <div className="flex rounded-xl border border-[#cddbd5] bg-white p-1"><button aria-label="Perkecil peta" onClick={() => map?.zoomOut()} className="grid size-9 place-items-center rounded-lg text-ink hover:bg-surface-subtle"><Minus size={17} weight="bold" /></button><button type="button" onClick={() => map?.jumpTo({ center: [OPAL_ATLAS_CENTER.lng, OPAL_ATLAS_CENTER.lat], zoom: OPAL_ATLAS_DEFAULT_ZOOM })} className="min-h-9 px-2 text-xs font-extrabold text-ink-muted">Reset</button><button aria-label="Perbesar peta" onClick={() => map?.zoomIn()} className="grid size-9 place-items-center rounded-lg text-ink hover:bg-surface-subtle"><Plus size={17} weight="bold" /></button><button aria-label="Pusatkan peta" onClick={() => map?.jumpTo({ center: [OPAL_ATLAS_CENTER.lng, OPAL_ATLAS_CENTER.lat], zoom: OPAL_ATLAS_DEFAULT_ZOOM })} className="grid size-9 place-items-center rounded-lg text-ink hover:bg-surface-subtle"><ArrowCounterClockwise size={16} weight="bold" /></button></div>
-          {query && searchResults.length ? <div className="absolute left-3 right-3 top-[4.65rem] z-20 overflow-hidden rounded-xl border border-[#c8d7d0] bg-white shadow-[0_18px_45px_rgba(7,43,35,.16)] lg:right-auto lg:w-[min(38rem,calc(100%-24rem))]">{searchResults.map((property) => <button key={property.id} type="button" onClick={() => { selectProperty(property); setQuery(""); }} className="flex w-full items-center justify-between gap-4 border-b border-[#e1e9e4] px-4 py-3 text-left last:border-b-0 hover:bg-[#f2f8f5]"><span className="min-w-0"><strong className="block text-sm text-ink">{streetForGang(property.gang).name} · No. {property.houseNumber}</strong><span className="mt-1 block truncate text-xs font-semibold text-ink-muted">{property.profile?.responsibleName ?? "Belum ada penanggung jawab"}</span></span><span className="shrink-0 text-xs font-extrabold text-brand-deep">{property.position ? "Terpasang" : "Belum dipasang"}</span></button>)}</div> : null}
+          <div className="flex rounded-xl border border-[#cddbd5] bg-white p-1"><button aria-label="Perkecil peta" disabled={mapZoom <= OPAL_ATLAS_MIN_ZOOM} onClick={() => map?.zoomOut()} className="grid size-9 place-items-center rounded-lg text-ink hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-35"><Minus size={17} weight="bold" /></button><button type="button" onClick={() => map?.jumpTo({ center: [OPAL_ATLAS_CENTER.lng, OPAL_ATLAS_CENTER.lat], zoom: OPAL_ATLAS_DEFAULT_ZOOM })} className="min-h-9 px-2 text-xs font-extrabold text-ink-muted">Reset</button><button aria-label={mapZoom >= OPAL_ATLAS_MAX_ZOOM ? "Detail maksimal peta" : "Perbesar peta"} disabled={mapZoom >= OPAL_ATLAS_MAX_ZOOM} onClick={() => map?.zoomIn()} className="grid size-9 place-items-center rounded-lg text-ink hover:bg-surface-subtle disabled:cursor-not-allowed disabled:opacity-35"><Plus size={17} weight="bold" /></button><button aria-label="Pusatkan peta" onClick={() => map?.jumpTo({ center: [OPAL_ATLAS_CENTER.lng, OPAL_ATLAS_CENTER.lat], zoom: OPAL_ATLAS_DEFAULT_ZOOM })} className="grid size-9 place-items-center rounded-lg text-ink hover:bg-surface-subtle"><ArrowCounterClockwise size={16} weight="bold" /></button></div>
+          {query && (searchResults.length || emptySlotResults.length) ? <div className="absolute left-3 right-3 top-[4.65rem] z-20 overflow-hidden rounded-xl border border-[#c8d7d0] bg-white shadow-[0_18px_45px_rgba(7,43,35,.16)] lg:right-auto lg:w-[min(38rem,calc(100%-24rem))]">{searchResults.map((property) => <button key={property.id} type="button" onClick={() => { selectProperty(property); setQuery(""); }} className="flex w-full items-center justify-between gap-4 border-b border-[#e1e9e4] px-4 py-3 text-left last:border-b-0 hover:bg-[#f2f8f5]"><span className="min-w-0"><strong className="block text-sm text-ink">{streetForGang(property.gang).name} · No. {property.houseNumber}</strong><span className="mt-1 block truncate text-xs font-semibold text-ink-muted">{property.profile?.responsibleName ?? "Belum ada penanggung jawab"}</span></span><span className="shrink-0 text-xs font-extrabold text-brand-deep">{property.position ? "Terpasang" : "Denah tetap"}</span></button>)}{emptySlotResults.map((slot) => <button key={slot.id} type="button" onClick={() => { selectSlot(slot); setQuery(""); }} className="flex w-full items-center justify-between gap-4 border-b border-[#e1e9e4] px-4 py-3 text-left last:border-b-0 hover:bg-[#f2f8f5]"><span className="min-w-0"><strong className="block text-sm text-ink">{streetForGang(slot.gang).name} · No. {slot.houseNumber}</strong><span className="mt-1 block truncate text-xs font-semibold text-ink-muted">Slot rumah di denah OPAL</span></span><span className="shrink-0 text-xs font-extrabold text-ink-muted">Belum ada data</span></button>)}</div> : null}
         </div>
         <div className={`relative h-[min(69dvh,790px)] min-h-[34rem] bg-[#dce7e1] ${calibrating ? "cursor-crosshair" : ""}`} aria-label="Peta satelit interaktif Cluster OPAL. Scroll halaman tetap normal; gunakan Ctrl atau Command sambil scroll untuk memperbesar peta.">
           <div ref={mapElement} tabIndex={0} className="opal-atlas-map size-full touch-pan-y outline-none focus-visible:ring-4 focus-visible:ring-brand/35" />
           {loadError ? <div className="absolute inset-0 grid place-items-center bg-[#eef4f1] p-6 text-center"><p className="max-w-md text-sm font-bold leading-7 text-ink-muted">{loadError}</p></div> : null}
+          {showGuide ? <section className="absolute left-4 top-4 z-10 w-[min(18rem,calc(100%-2rem))] rounded-2xl border border-white/80 bg-white/95 p-3.5 shadow-[0_12px_34px_rgba(8,48,41,.2)]"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black tracking-[-.03em] text-ink">Mulai dari sini</p><p className="mt-1 text-xs font-semibold leading-5 text-ink-muted">Atlas ini khusus Cluster OPAL, bukan peta umum.</p></div><button type="button" onClick={() => setShowGuide(false)} className="grid size-8 place-items-center rounded-lg text-ink-muted hover:bg-surface-subtle" aria-label="Sembunyikan panduan peta"><X size={16} weight="bold" /></button></div><div className="mt-3 grid gap-1"><button type="button" onClick={() => searchInputRef.current?.focus()} className="flex min-h-10 items-center gap-2 rounded-xl px-2 text-left text-sm font-extrabold text-ink hover:bg-[#edf5f1]"><MagnifyingGlass size={17} weight="bold" className="text-brand" /><span><b className="font-extrabold">Cari rumah</b><small className="ml-1 font-semibold text-ink-muted">No. 14 atau nama</small></span></button><button type="button" onClick={() => setMapType("roadmap")} className="flex min-h-10 items-center gap-2 rounded-xl px-2 text-left text-sm font-extrabold text-ink hover:bg-[#edf5f1]"><MapTrifold size={17} weight="duotone" className="text-brand" /><span><b className="font-extrabold">Lihat nama jalan</b><small className="ml-1 font-semibold text-ink-muted">DS I, II, III, V</small></span></button><button type="button" onClick={() => { setCalibrating(true); setShowGuide(false); }} className="flex min-h-10 items-center gap-2 rounded-xl px-2 text-left text-sm font-extrabold text-ink hover:bg-[#edf5f1]"><Crosshair size={17} weight="bold" className="text-brand" /><span><b className="font-extrabold">Pasang rumah</b><small className="ml-1 font-semibold text-ink-muted">klik bangunan asli</small></span></button></div><p className="mt-3 border-t border-[#dce7e1] pt-2.5 text-xs font-semibold leading-5 text-ink-muted">{calibratedCount ? `${calibratedCount} rumah sudah terpasang.` : "Belum ada rumah terpasang. Mulai dari Pasang rumah."}</p></section> : <button type="button" onClick={() => setShowGuide(true)} className="absolute left-4 top-4 z-10 inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/80 bg-white/95 px-3 text-xs font-extrabold text-ink shadow-[0_8px_28px_rgba(8,48,41,.18)]"><MapTrifold size={16} weight="duotone" />Cara pakai</button>}
           <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl bg-white/95 px-3 py-2 text-xs font-bold text-ink-muted shadow-[0_8px_28px_rgba(8,48,41,.18)]">Scroll halaman tetap normal. Ctrl atau Command + scroll untuk zoom peta.</div>
           <div className="absolute right-4 top-4 flex rounded-xl border border-white/70 bg-white/95 p-1 shadow-[0_8px_28px_rgba(8,48,41,.18)]"><button type="button" onClick={() => setMapType("satellite")} className={`min-h-9 rounded-lg px-3 text-xs font-extrabold ${mapType === "satellite" ? "bg-action text-on-action" : "text-ink-muted"}`}>Satelit</button><button type="button" onClick={() => setMapType("roadmap")} className={`min-h-9 rounded-lg px-3 text-xs font-extrabold ${mapType === "roadmap" ? "bg-action text-on-action" : "text-ink-muted"}`}>Jalan</button></div>
         </div>
       </section>
       <aside className="rounded-[20px] border border-[#c8d7d0] bg-[#f9fcfa] p-5 shadow-[0_22px_74px_rgba(7,43,35,.08)]"><div className="flex items-center gap-2"><MapTrifold size={22} weight="duotone" className="text-brand" /><h2 className="font-black tracking-[-.04em] text-ink">Tinjauan Atlas</h2></div><dl className="mt-5 space-y-4">{[["Rumah terdaftar", properties.length], ["Sudah terpasang", calibratedCount], ["Perlu tindak lanjut", properties.filter((property) => statusOf(property) === "attention").length], ["Belum dipasang", unplaced.length]].map(([label, value]) => <div key={String(label)} className="flex items-end justify-between gap-3 border-b border-[#dce7e1] pb-3"><dt className="text-sm font-bold text-ink-muted">{label}</dt><dd className="text-2xl font-black tracking-[-.06em] text-ink">{value}</dd></div>)}</dl>
-        <div className="mt-6 border-t border-[#dce7e1] pt-5"><button type="button" onClick={() => { setCalibrating((value) => !value); setPendingPosition(null); }} className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-extrabold ${calibrating ? "bg-action text-on-action" : "border border-[#bfd2c9] text-ink hover:border-brand hover:text-brand-deep"}`}><Crosshair size={18} weight="bold" />{calibrating ? "Selesai kalibrasi" : "Kalibrasi Atlas"}</button>{calibrating ? <CalibrationPanel properties={unplaced} targetId={calibrationTargetId} pendingPosition={pendingPosition} isPending={isPending} onTarget={setCalibrationTargetId} onSave={saveCalibration} /> : <p className="mt-3 text-sm leading-6 text-ink-muted">Pilih Kalibrasi Atlas, pilih unit, lalu klik pusat bangunan pada citra asli.</p>}</div>
+        <div className="mt-6 border-t border-[#dce7e1] pt-5"><button type="button" onClick={() => { setCalibrating((value) => !value); setPendingPosition(null); setCalibrationTargetId(null); }} className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-3 text-sm font-extrabold ${calibrating ? "bg-action text-on-action" : "border border-[#bfd2c9] text-ink hover:border-brand hover:text-brand-deep"}`}><Crosshair size={18} weight="bold" />{calibrating ? "Selesai memasang rumah" : "Pasang rumah ke peta"}</button>{calibrating ? <CalibrationPanel properties={unplaced} targetId={calibrationTargetId} pendingPosition={pendingPosition} isPending={isPending} onTarget={setCalibrationTargetId} onClear={() => { setPendingPosition(null); setCalibrationTargetId(null); }} onSave={saveCalibration} /> : <p className="mt-3 text-sm leading-6 text-ink-muted">Atau cukup klik bangunan langsung di peta. Atlas akan membuka langkah pemasangan rumah secara otomatis.</p>}</div>
       </aside>
     </div>
-    <Dialog.Root open={Boolean(selected)} onOpenChange={(open) => { if (!open) { setSelectedId(null); router.replace("/admin/peta-rumah", { scroll: false }); } }}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-40 bg-[#072b23]/35" /><Dialog.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[84dvh] flex-col rounded-t-[22px] bg-[#fbfdfc] shadow-[0_-18px_60px_rgba(4,31,24,.24)] focus:outline-none sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[min(34rem,92vw)] sm:max-h-none sm:rounded-none" aria-describedby={undefined}>{selected ? <PropertyInspector property={selected} isPending={isPending} message={message} onMessage={setMessage} onRefresh={() => router.refresh()} onCalibrate={() => { setCalibrating(true); setCalibrationTargetId(selected.id); setPendingPosition(null); }} onRemovePosition={() => startTransition(async () => { try { const result = await removePropertyMapPosition(selected.id); setMessage(result.message); router.refresh(); } catch (error) { setMessage(error instanceof Error ? error.message : "Posisi belum dapat dihapus."); } })} /> : null}</Dialog.Content></Dialog.Portal></Dialog.Root>
+    <Dialog.Root open={Boolean(selected || selectedSlot)} onOpenChange={(open) => { if (!open) { setSelectedId(null); setSelectedSlot(null); router.replace("/admin/peta-rumah", { scroll: false }); } }}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-40 bg-[#072b23]/35" /><Dialog.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[84dvh] flex-col rounded-t-[22px] bg-[#fbfdfc] shadow-[0_-18px_60px_rgba(4,31,24,.24)] focus:outline-none sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[min(34rem,92vw)] sm:max-h-none sm:rounded-none" aria-describedby={undefined}>{selected ? <PropertyInspector property={selected} isPending={isPending} message={message} onMessage={setMessage} onRefresh={() => router.refresh()} onCalibrate={() => { setCalibrating(true); setCalibrationTargetId(selected.id); setPendingPosition(null); }} onRemovePosition={() => startTransition(async () => { try { const result = await removePropertyMapPosition(selected.id); setMessage(result.message); router.refresh(); } catch (error) { setMessage(error instanceof Error ? error.message : "Posisi belum dapat dihapus."); } })} /> : selectedSlot ? <EmptySlotInspector slot={selectedSlot} onSaved={(unitCode) => { setSelectedSlot(null); router.replace(`/admin/peta-rumah?unit=${encodeURIComponent(unitCode)}`, { scroll: false }); router.refresh(); }} /> : null}</Dialog.Content></Dialog.Portal></Dialog.Root>
   </main>;
 }
 
 
-function CalibrationPanel({ properties, targetId, pendingPosition, isPending, onTarget, onSave }: { properties: PropertyMapSummary[]; targetId: string | null; pendingPosition: Coordinates | null; isPending: boolean; onTarget: (id: string) => void; onSave: () => void }) { return <div className="mt-4"><p className="text-xs font-extrabold uppercase tracking-[.12em] text-brand">Unit belum dipasang</p><div className="mt-2 max-h-44 overflow-y-auto rounded-xl border border-[#dce7e1]">{properties.length ? properties.map((property) => <button key={property.id} type="button" onClick={() => onTarget(property.id)} className={`flex min-h-10 w-full items-center justify-between border-b border-[#e1e9e4] px-3 text-left text-sm font-extrabold last:border-b-0 ${targetId === property.id ? "bg-brand-soft text-brand-deep" : "text-ink hover:bg-surface-subtle"}`}><span>{streetForGang(property.gang).shortName} · {property.houseNumber}</span><CaretRight size={16} /></button>) : <p className="p-3 text-sm leading-6 text-ink-muted">Semua rumah yang terdaftar telah dipasang.</p>}</div>{targetId ? <p className="mt-3 text-sm font-bold leading-6 text-ink-muted">Klik pusat bangunan pada citra. Koordinat tidak disimpan sampai Anda menekan tombol simpan.</p> : null}{pendingPosition ? <button type="button" disabled={isPending} onClick={onSave} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-action px-3 text-sm font-extrabold text-on-action disabled:opacity-60">{isPending ? <SpinnerGap size={18} className="animate-spin" /> : <CheckCircle size={18} weight="bold" />}Simpan posisi ini</button> : null}</div>; }
+function CalibrationPanel({ properties, targetId, pendingPosition, isPending, onTarget, onClear, onSave }: { properties: PropertyMapSummary[]; targetId: string | null; pendingPosition: Coordinates | null; isPending: boolean; onTarget: (id: string) => void; onClear: () => void; onSave: () => void }) { return <div className="mt-4"><p className="text-xs font-extrabold uppercase tracking-[.12em] text-brand">Pasang satu rumah</p><p className="mt-2 text-sm font-bold leading-6 text-ink-muted">{pendingPosition ? targetId ? "Bangunan dan unit sudah dipilih. Simpan untuk membuatnya bisa diklik." : "Bangunan sudah dipilih. Sekarang pilih nomor rumah di bawah." : "Langkah 1: klik bangunan pada citra. Langkah 2: pilih nomor rumah."}</p><div className="mt-3 max-h-44 overflow-y-auto rounded-xl border border-[#dce7e1]">{properties.length ? properties.map((property) => <button key={property.id} type="button" onClick={() => onTarget(property.id)} className={`flex min-h-10 w-full items-center justify-between border-b border-[#e1e9e4] px-3 text-left text-sm font-extrabold last:border-b-0 ${targetId === property.id ? "bg-brand-soft text-brand-deep" : "text-ink hover:bg-surface-subtle"}`}><span>{streetForGang(property.gang).shortName} · {property.houseNumber}</span><CaretRight size={16} /></button>) : <p className="p-3 text-sm leading-6 text-ink-muted">Tidak ada unit yang belum dipasang. Tambahkan rumah dari dashboard terlebih dahulu.</p>}</div>{pendingPosition ? <button type="button" onClick={onClear} className="mt-3 text-xs font-extrabold text-ink-muted underline underline-offset-4">Pilih bangunan lain</button> : null}{targetId && pendingPosition ? <button type="button" disabled={isPending} onClick={onSave} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-action px-3 text-sm font-extrabold text-on-action disabled:opacity-60">{isPending ? <SpinnerGap size={18} className="animate-spin" /> : <CheckCircle size={18} weight="bold" />}Simpan & aktifkan klik rumah</button> : null}</div>; }
+
+function EmptySlotInspector({ slot, onSaved }: { slot: MapSlot; onSaved: (unitCode: string) => void }) {
+  const [saving, startTransition] = useTransition();
+  const [message, setMessage] = useState("");
+  function saveSlot(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    startTransition(async () => {
+      try {
+        const result = await savePropertyProfile(new FormData(event.currentTarget));
+        setMessage(result.message);
+        onSaved(result.unitCode);
+      } catch (error) { setMessage(error instanceof Error ? error.message : "Rumah belum dapat ditambahkan."); }
+    });
+  }
+  return <><div className="flex items-start justify-between border-b border-[#dce7e1] px-5 py-5"><div><Dialog.Title className="text-2xl font-black tracking-[-.06em] text-ink">{slot.unitCode}</Dialog.Title><Dialog.Description className="mt-1 text-sm font-semibold text-ink-muted">{streetForGang(slot.gang).name} · slot denah tetap</Dialog.Description></div><Dialog.Close aria-label="Tutup detail rumah" className="grid size-10 place-items-center rounded-xl text-ink-muted hover:bg-surface-subtle"><X size={21} weight="bold" /></Dialog.Close></div><div className="min-h-0 flex-1 overflow-y-auto px-5 py-5"><span className="inline-flex min-h-8 items-center rounded-full bg-surface-subtle px-3 text-xs font-extrabold text-ink-muted">Belum ada data warga</span><p className="mt-4 text-sm font-semibold leading-7 text-ink-muted">Slot rumah ini sudah dipasang di Atlas. Tambahkan unit sekarang; data keluarga dapat dilengkapi kemudian tanpa mengubah letaknya di peta.</p>{message ? <p aria-live="polite" className="mt-4 rounded-xl border border-[#b9d9cd] bg-brand-soft px-3 py-3 text-sm font-bold leading-6 text-brand-deep">{message}</p> : null}<form onSubmit={saveSlot} className="mt-5 grid gap-4"><input type="hidden" name="gang" value={slot.gang} /><input type="hidden" name="houseNumber" value={slot.houseNumber} /><Field label="Status hunian"><select name="occupancyStatus" defaultValue=""><option value="">Belum disahkan</option><option value="self">Dihuni sendiri</option><option value="relative">Dihuni kerabat</option><option value="tenant">Dihuni penyewa</option><option value="vacant_rent">Kosong, disewakan</option><option value="vacant_sale">Kosong, dijual</option></select></Field><button disabled={saving} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-action px-4 text-sm font-extrabold text-on-action disabled:opacity-60">{saving ? <SpinnerGap size={18} className="animate-spin" /> : <CheckCircle size={18} weight="bold" />}{saving ? "Menambahkan…" : "Tambahkan rumah ke Atlas"}</button></form></div></>;
+}
 
 function PropertyInspector({ property, isPending, message, onMessage, onRefresh, onCalibrate, onRemovePosition }: { property: PropertyMapSummary; isPending: boolean; message: string; onMessage: (value: string) => void; onRefresh: () => void; onCalibrate: () => void; onRemovePosition: () => void }) {
   const router = useRouter(); const [tab, setTab] = useState<InspectorTab>("summary"); const [editing, setEditing] = useState(false); const [saving, startTransition] = useTransition(); const status = statusOf(property); const latestContribution = newest(property.contributions); const latestRequest = newest(property.requests);
