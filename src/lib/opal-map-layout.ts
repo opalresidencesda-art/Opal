@@ -1,17 +1,21 @@
-export const OPAL_MAP_VIEWBOX = { width: 1_600, height: 920 } as const;
+export const OPAL_ATLAS_CENTER = { lat: -7.3536828, lng: 112.781988 } as const;
+export const OPAL_ATLAS_DEFAULT_ZOOM = 19;
 
-export type MapSlot = {
-  unitCode: string;
-  gang: 1 | 2 | 3 | 5;
-  houseNumber: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  side: "west" | "east";
-};
+export const OPAL_STREETS = [
+  { gang: 1, name: "Jl. Delima Selatan I", shortName: "DS I" },
+  { gang: 2, name: "Jl. Delima Selatan II", shortName: "DS II" },
+  { gang: 3, name: "Jl. Delima Selatan III", shortName: "DS III" },
+  { gang: 5, name: "Jl. Delima Selatan V", shortName: "DS V" },
+] as const;
 
 export type PropertyMapStatus = "verified" | "attention" | "missing" | "vacant";
+
+export type PropertyMapPosition = {
+  latitude: number;
+  longitude: number;
+  calibratedAt: string;
+  calibratedBy: string;
+};
 
 export type PropertyMapSummary = {
   id: string;
@@ -21,6 +25,7 @@ export type PropertyMapSummary = {
   occupancyStatus: string | null;
   active: boolean;
   accessLinkActive: boolean;
+  position: PropertyMapPosition | null;
   profile: {
     responsibleName: string;
     responsibleAddress: string;
@@ -41,50 +46,52 @@ export type PropertyMapSummary = {
   requests: Array<{ id: string; requestType: "move" | "domicile" | "single"; status: string; createdAt: string }>;
 };
 
-const gangGeometry: Array<{ gang: 1 | 2 | 3 | 5; roadX: number }> = [
-  { gang: 1, roadX: 220 },
-  { gang: 2, roadX: 580 },
-  { gang: 3, roadX: 940 },
-  { gang: 5, roadX: 1_300 },
-];
-
-const housesPerGang = 80;
-const houseWidth = 42;
-const houseHeight = 13;
-const rowGap = 5;
-const firstHouseY = 126;
-
-function unitCode(gang: number, houseNumber: string) {
-  return `OP ${gang} - ${houseNumber}`;
+export function streetForGang(gang: number) {
+  return OPAL_STREETS.find((street) => street.gang === gang) ?? { gang, name: `Gang ${gang}`, shortName: `Gang ${gang}` };
 }
-
-export const OPAL_MAP_SLOTS: MapSlot[] = gangGeometry.flatMap(({ gang, roadX }) => Array.from({ length: housesPerGang }, (_, index) => {
-  const side = index < housesPerGang / 2 ? "west" : "east" as const;
-  const row = side === "west" ? index : index - housesPerGang / 2;
-  const houseNumber = String(index + 1);
-
-  return {
-    unitCode: unitCode(gang, houseNumber),
-    gang,
-    houseNumber,
-    x: side === "west" ? roadX - 72 : roadX + 30,
-    y: firstHouseY + row * (houseHeight + rowGap),
-    width: houseWidth,
-    height: houseHeight,
-    side,
-  };
-}));
-
-export const OPAL_MAP_SLOT_BY_UNIT = new Map(OPAL_MAP_SLOTS.map((slot) => [slot.unitCode, slot]));
 
 export function mapStatus(property: Pick<PropertyMapSummary, "occupancyStatus" | "profile" | "latestSubmission" | "contributions">): PropertyMapStatus {
   if (property.occupancyStatus === "vacant_rent" || property.occupancyStatus === "vacant_sale") return "vacant";
   if (property.latestSubmission && ["submitted", "in_review", "needs_revision"].includes(property.latestSubmission.status)) return "attention";
   if (property.contributions.some((contribution) => contribution.status === "pending")) return "attention";
-  if (property.profile) return "verified";
-  return "missing";
+  return property.profile ? "verified" : "missing";
 }
 
 export function unplacedProperties(properties: PropertyMapSummary[]) {
-  return properties.filter((property) => !OPAL_MAP_SLOT_BY_UNIT.has(property.unitCode));
+  return properties.filter((property) => !property.position);
+}
+
+function normalise(value: string) {
+  return value.toLowerCase().replace(/jalan|jl\.?|delima|selatan|opal|residence/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+export function searchProperties(properties: PropertyMapSummary[], rawQuery: string) {
+  const query = normalise(rawQuery);
+  if (!query) return [];
+  const words = query.split(" ").filter(Boolean);
+  const requestedNumber = words.find((word) => /^\d{1,3}$/.test(word));
+  const requestedGang = words.find((word) => ["1", "2", "3", "5", "i", "ii", "iii", "v"].includes(word));
+  const romanGang: Record<string, number> = { i: 1, ii: 2, iii: 3, v: 5 };
+  const gang = requestedGang ? romanGang[requestedGang] ?? Number(requestedGang) : undefined;
+
+  return properties
+    .map((property) => {
+      const haystack = normalise(`${property.unitCode} ${property.houseNumber} ${property.profile?.responsibleName ?? ""} ${streetForGang(property.gang).name}`);
+      const numberMatch = !requestedNumber || property.houseNumber.replace(/^0+/, "") === requestedNumber.replace(/^0+/, "");
+      const gangMatch = !gang || property.gang === gang;
+      const wordsMatch = words.every((word) => haystack.includes(word) || romanGang[word] === property.gang);
+      const score = (numberMatch ? 4 : 0) + (gangMatch ? 3 : 0) + (wordsMatch ? 2 : 0) + (haystack.includes(query) ? 2 : 0);
+      return { property, score, matches: (requestedNumber ? numberMatch : wordsMatch) && gangMatch };
+    })
+    .filter((item) => item.matches || item.score >= 4)
+    .sort((left, right) => right.score - left.score || left.property.gang - right.property.gang || Number(left.property.houseNumber) - Number(right.property.houseNumber))
+    .map((item) => item.property)
+    .slice(0, 8);
+}
+
+export function streetRanges(properties: PropertyMapSummary[]) {
+  return OPAL_STREETS.map((street) => {
+    const numbers = properties.filter((property) => property.gang === street.gang && property.position).map((property) => Number(property.houseNumber)).filter(Number.isFinite).sort((a, b) => a - b);
+    return numbers.length ? { ...street, label: `${String(numbers[0]).padStart(2, "0")}–${String(numbers[numbers.length - 1]).padStart(2, "0")}` } : null;
+  }).filter((item): item is NonNullable<typeof item> => Boolean(item));
 }

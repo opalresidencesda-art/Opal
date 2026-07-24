@@ -36,6 +36,7 @@ type MapPropertyRow = {
   }>;
   property_contributions: Array<{ status: "paid" | "pending" | "waived"; period: string | null; amount_rupiah: number; paid_at: string | null }>;
   service_requests: Array<{ id: string; request_type: "move" | "domicile" | "single"; status: string; created_at: string }>;
+  property_map_positions: Array<{ latitude: number; longitude: number; calibrated_at: string; calibrated_by: string }>;
 };
 
 function first<T>(value: T | T[] | null) {
@@ -53,6 +54,12 @@ function mapProperty(row: MapPropertyRow): PropertyMapSummary {
     occupancyStatus: row.occupancy_status,
     active: row.active,
     accessLinkActive: Boolean(row.access_token_created_at && !row.access_token_revoked_at),
+    position: first(row.property_map_positions) ? {
+      latitude: first(row.property_map_positions)!.latitude,
+      longitude: first(row.property_map_positions)!.longitude,
+      calibratedAt: first(row.property_map_positions)!.calibrated_at,
+      calibratedBy: first(row.property_map_positions)!.calibrated_by,
+    } : null,
     profile: profile ? {
       responsibleName: profile.responsible_name,
       responsibleAddress: profile.responsible_address,
@@ -82,7 +89,7 @@ export default async function AdminPropertyMapPage({ searchParams }: { searchPar
 
   const supabase = await createSupabaseServerClient();
   const [propertiesResult, params] = await Promise.all([
-    supabase.from("properties").select("id,unit_code,gang,house_number,occupancy_status,active,access_token_created_at,access_token_revoked_at,resident_profiles(responsible_name,responsible_address,whatsapp,head_of_household_name,head_of_household_occupation,occupants_count,contact_email,updated_at),resident_submissions(id,status,created_at,resident_evidence(id,evidence_kind,original_name)),property_contributions(status,period,amount_rupiah,paid_at),service_requests(id,request_type,status,created_at)").order("unit_code"),
+    supabase.from("properties").select("id,unit_code,gang,house_number,occupancy_status,active,access_token_created_at,access_token_revoked_at,resident_profiles(responsible_name,responsible_address,whatsapp,head_of_household_name,head_of_household_occupation,occupants_count,contact_email,updated_at),resident_submissions(id,status,created_at,resident_evidence(id,evidence_kind,original_name)),property_contributions(status,period,amount_rupiah,paid_at),service_requests(id,request_type,status,created_at),property_map_positions(latitude,longitude,calibrated_at,calibrated_by)").order("unit_code"),
     searchParams,
   ]);
   if (propertiesResult.error) return <LoadError />;

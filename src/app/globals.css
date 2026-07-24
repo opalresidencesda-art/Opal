@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@fontsource-variable/manrope";
+@import "maplibre-gl/dist/maplibre-gl.css";
 
 :root {
   --font-ui: "Manrope Variable", "Aptos", "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
@@ -24,6 +25,10 @@
   --line: #d0e0d8;
   --media-overlay: rgba(7, 34, 29, 0.5);
   color-scheme: light;
+}
+
+.opal-atlas-map .maplibregl-canvas {
+  touch-action: pan-y;
 }
 
 @theme inline {

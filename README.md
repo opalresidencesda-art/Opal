@@ -10,6 +10,7 @@ Portal operasional OPAL Residence: panduan native, pendataan warga dengan bukti 
 - `/kas`: ringkasan publik dan informasi rekening BCA Kas OPAL; riwayat per rumah hanya melalui `/rumah/[token]` yang dibuat RT.
 - `/petugas`, `/spesifikasi-rumah`, `/denah`: direktori kerja, spesifikasi, dan empat lembar denah asli yang sudah dipindahkan sebagai aset lokal.
 - `/admin`: antrean pendataan/surat, penerbitan, pengaturan nomor surat, Kas, token rumah, petugas, spesifikasi, denah, panduan, dan pengumuman.
+- `/admin/peta-rumah`: OPAL Atlas, peta satelit MapLibre privat dengan pencarian nomor rumah, inspector keluarga, dan kalibrasi titik rumah satu per satu.
 
 ## Menjalankan lokal
 
@@ -35,6 +36,13 @@ Buka `http://localhost:3000`. Tanpa konfigurasi Supabase, halaman publik tetap d
 4. Buka `/admin`, masuk memakai email dan kata sandi tersebut, lalu isi Pengaturan Penerbitan Surat. Penerbitan tetap terkunci sampai semua identitas RT dan format nomor resmi disimpan.
 
 `SUPABASE_SERVICE_ROLE_KEY` hanya dipakai di server dan skrip impor. Jangan pernah memasukkannya ke variabel `NEXT_PUBLIC_*`, browser, atau Git.
+
+## Menyiapkan OPAL Atlas
+
+1. Jalankan ulang `schema.sql` agar tabel privat `property_map_positions` dan RLS-nya dibuat.
+2. Setelah masuk Admin, buka **Peta Rumah → Kalibrasi Atlas**, pilih unit, klik pusat bangunan pada citra asli, lalu simpan. Posisi selalu terhubung ke `property_id`, bukan format kode unit.
+
+Atlas memakai MapLibre GL JS, mesin peta open-source, dengan citra satelit dan peta jalan yang dimuat langsung dari penyedia publik beserta atribusi di peta. Tidak ada Google Maps API key maupun billing Google di deployment.
 
 ## Migrasi data lama
 

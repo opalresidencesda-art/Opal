@@ -188,6 +188,15 @@ create table if not exists public.properties (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.property_map_positions (
+  property_id uuid primary key references public.properties(id) on delete cascade,
+  latitude double precision not null check (latitude between -90 and 90),
+  longitude double precision not null check (longitude between -180 and 180),
+  calibrated_by text not null,
+  calibrated_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.resident_profiles (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null unique references public.properties(id) on delete cascade,
@@ -430,6 +439,8 @@ drop trigger if exists home_specs_set_updated_at on public.home_specs;
 create trigger home_specs_set_updated_at before update on public.home_specs for each row execute function public.set_updated_at();
 drop trigger if exists floor_plan_assets_set_updated_at on public.floor_plan_assets;
 create trigger floor_plan_assets_set_updated_at before update on public.floor_plan_assets for each row execute function public.set_updated_at();
+drop trigger if exists property_map_positions_set_updated_at on public.property_map_positions;
+create trigger property_map_positions_set_updated_at before update on public.property_map_positions for each row execute function public.set_updated_at();
 
 create or replace function public.log_opal_activity()
 returns trigger
@@ -520,6 +531,11 @@ begin
     action_label := case when TG_OP = 'INSERT' then 'Profil rumah ditambahkan' else 'Profil rumah diperbarui' end;
     entity_label := 'profil_rumah';
     row_id := new.property_id;
+  elsif TG_TABLE_NAME = 'property_map_positions' then
+    if actor = '' then return new; end if;
+    action_label := case when TG_OP = 'INSERT' then 'Posisi rumah pada Atlas dipasang' else 'Posisi rumah pada Atlas dikoreksi' end;
+    entity_label := 'peta_rumah';
+    row_id := new.property_id;
   else
     return new;
   end if;
@@ -571,6 +587,8 @@ drop trigger if exists properties_created_activity_log on public.properties;
 create trigger properties_created_activity_log after insert on public.properties for each row execute function public.log_opal_activity();
 drop trigger if exists resident_profiles_activity_log on public.resident_profiles;
 create trigger resident_profiles_activity_log after insert or update on public.resident_profiles for each row execute function public.log_opal_activity();
+drop trigger if exists property_map_positions_activity_log on public.property_map_positions;
+create trigger property_map_positions_activity_log after insert or update on public.property_map_positions for each row execute function public.log_opal_activity();
 drop trigger if exists fee_schedules_activity_log on public.fee_schedules;
 create trigger fee_schedules_activity_log after insert on public.fee_schedules for each row execute function public.log_opal_activity();
 drop trigger if exists announcements_activity_log on public.announcements;
@@ -589,6 +607,7 @@ drop trigger if exists admin_users_activity_log on public.admin_users;
 create trigger admin_users_activity_log after insert or delete on public.admin_users for each row execute function public.log_opal_admin_access_activity();
 
 alter table public.properties enable row level security;
+alter table public.property_map_positions enable row level security;
 alter table public.resident_profiles enable row level security;
 alter table public.resident_submissions enable row level security;
 alter table public.resident_evidence enable row level security;
@@ -607,6 +626,8 @@ alter table public.source_imports enable row level security;
 
 drop policy if exists "Admins manage properties" on public.properties;
 create policy "Admins manage properties" on public.properties for all using (public.is_opal_admin()) with check (public.is_opal_admin());
+drop policy if exists "Admins manage property map positions" on public.property_map_positions;
+create policy "Admins manage property map positions" on public.property_map_positions for all using (public.is_opal_admin()) with check (public.is_opal_admin());
 drop policy if exists "Admins manage resident profiles" on public.resident_profiles;
 create policy "Admins manage resident profiles" on public.resident_profiles for all using (public.is_opal_admin()) with check (public.is_opal_admin());
 drop policy if exists "Admins manage resident submissions" on public.resident_submissions;

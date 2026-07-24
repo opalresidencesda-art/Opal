@@ -383,6 +383,36 @@ export async function createPropertyMapLink(propertyId: string) {
   return { url: `${base}/rumah/${token}` };
 }
 
+const propertyMapPositionSchema = z.object({
+  propertyId: z.string().uuid(),
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
+});
+
+export async function savePropertyMapPosition(input: unknown) {
+  const { supabase, email } = await requireAdmin();
+  const values = propertyMapPositionSchema.parse(input);
+  const { error } = await supabase.from("property_map_positions").upsert({
+    property_id: values.propertyId,
+    latitude: values.latitude,
+    longitude: values.longitude,
+    calibrated_by: email,
+    calibrated_at: new Date().toISOString(),
+  }, { onConflict: "property_id" });
+  if (error) throw new Error("Posisi rumah belum dapat disimpan. Pastikan skema Atlas sudah diterapkan.");
+  revalidatePath("/admin/peta-rumah");
+  return { message: "Posisi rumah pada peta telah disimpan." };
+}
+
+export async function removePropertyMapPosition(propertyId: string) {
+  const { supabase } = await requireAdmin();
+  if (!z.string().uuid().safeParse(propertyId).success) throw new Error("Rumah tidak valid.");
+  const { error } = await supabase.from("property_map_positions").delete().eq("property_id", propertyId);
+  if (error) throw new Error("Posisi rumah belum dapat dihapus.");
+  revalidatePath("/admin/peta-rumah");
+  return { message: "Posisi rumah telah dihapus dari peta." };
+}
+
 export async function saveCashTransaction(formData: FormData) {
   const { supabase } = await requireAdmin();
   const id = textValue(formData, "id", false);
