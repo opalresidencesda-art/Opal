@@ -2,6 +2,7 @@
 
 import { CheckCircle, PaperPlaneTilt, WarningCircle } from "@phosphor-icons/react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export type LetterType = "move" | "domicile" | "single";
 type Field = { name: string; label: string; hint?: string; type?: "text" | "email" | "tel" | "number"; defaultValue?: string | number; options?: string[]; span?: "full" };
@@ -57,16 +58,21 @@ export function DocumentRequestForm({ type }: { type: LetterType }) {
     const values = Object.fromEntries(form.entries());
     setStatus("submitting");
     setMessage("");
+    const toastId = toast.loading("Mengirim permohonan...");
     try {
       const response = await fetch("/api/surat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type, values }) });
       const body = (await response.json()) as { error?: string; reference?: string; receiptEmailSent?: boolean };
       if (!response.ok) throw new Error(body.error ?? "Permohonan tidak dapat dikirim.");
+      const successMessage = `Permohonan ${config.title} diterima. Nomor referensi: ${body.reference}.${body.receiptEmailSent ? " Tanda-terima aman telah dikirim ke email Anda." : " RT akan menghubungi Anda setelah pemeriksaan."}`;
       setStatus("success");
-      setMessage(`Permohonan ${config.title} diterima. Nomor referensi: ${body.reference}.${body.receiptEmailSent ? " Tanda-terima aman telah dikirim ke email Anda." : " RT akan menghubungi Anda setelah pemeriksaan."}`);
+      setMessage(successMessage);
+      toast.success("Permohonan berhasil dikirim", { id: toastId, description: `Referensi ${body.reference}` });
       event.currentTarget.reset();
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Terjadi kendala saat mengirim permohonan.";
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : "Terjadi kendala saat mengirim permohonan.");
+      setMessage(errorMessage);
+      toast.error("Permohonan belum terkirim", { id: toastId, description: errorMessage });
     }
   }
 
@@ -112,6 +118,6 @@ export function DocumentRequestForm({ type }: { type: LetterType }) {
         <span>{message || "Mengirim permohonan. Mohon tunggu."}</span>
       </div>
     ) : null}
-    <button disabled={status === "submitting"} aria-disabled={status === "submitting"} className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-action px-6 text-base font-bold text-on-action hover:bg-brand disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"><PaperPlaneTilt size={20} weight="fill" aria-hidden="true" />{status === "submitting" ? "Mengirim permohonan..." : "Kirim permohonan"}</button>
+    <button disabled={status === "submitting"} aria-disabled={status === "submitting"} className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-action px-6 text-base font-bold text-on-action hover:bg-brand hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"><PaperPlaneTilt size={20} weight="fill" aria-hidden="true" />{status === "submitting" ? "Mengirim permohonan..." : "Kirim permohonan"}</button>
   </form>;
 }

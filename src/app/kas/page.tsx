@@ -1,5 +1,6 @@
 import { ArrowDownLeft, ArrowUpRight, Bank, CalendarBlank, Wallet } from "@phosphor-icons/react/dist/ssr";
 import { FeeList } from "@/components/fee-list";
+import { ServicePageHero } from "@/components/service-page-hero";
 import { formatDate, formatRupiah } from "@/lib/format";
 import { getPortalData } from "@/lib/data";
 import { getPublicCashSummary } from "@/lib/portal-services";
@@ -13,19 +14,11 @@ export default async function KasPage() {
 
   return (
     <div>
-      <section className="bg-action text-ink-inverse">
-        <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-14 sm:px-8 lg:grid-cols-[minmax(0,1.12fr)_minmax(18rem,0.88fr)] lg:items-end lg:px-10 lg:py-20">
-          <div>
-            <p className="text-xs font-extrabold tracking-[0.16em] text-brand-soft">KAS OPAL</p>
-            <h1 className="public-display mt-5 max-w-4xl text-4xl font-bold leading-[0.96] sm:text-5xl lg:text-6xl">
-              Kas yang bisa dibaca warga.
-            </h1>
-          </div>
-          <p className="max-w-md border-l-2 border-brand-soft pl-5 text-base leading-7 text-ink-inverse/78">
-            Ringkasan publik dibuat untuk transparansi. Riwayat iuran setiap rumah tetap tersedia melalui tautan privat dari RT.
-          </p>
-        </div>
-      </section>
+      <ServicePageHero
+        kicker="KAS OPAL"
+        title="Kas yang bisa dibaca warga."
+        description="Ringkasan publik untuk transparansi. Riwayat setiap rumah tetap tersedia melalui tautan privat dari RT."
+      />
 
       <section className="mx-auto max-w-[1440px] px-5 py-10 sm:px-8 lg:px-10 lg:py-14">
         <div className="grid border-b border-line lg:grid-cols-[minmax(0,1.12fr)_minmax(18rem,0.88fr)]">

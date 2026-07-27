@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mapStatus, OPAL_ATLAS_DEFAULT_ZOOM, OPAL_ATLAS_MAX_ZOOM, OPAL_ATLAS_MIN_ZOOM, OPAL_MAP_LAYOUT, OPAL_MAP_SLOTS, propertyMatchesSlot, searchMapSlots, searchProperties, streetForGang, unplacedProperties, type PropertyMapSummary } from "../src/lib/opal-map-layout";
-import { shouldZoomMapFromWheel } from "../src/lib/opal-map-gesture";
+import { shouldSetPropertyPosition, shouldZoomMapFromWheel } from "../src/lib/opal-map-gesture";
 
 const emptyProperty: PropertyMapSummary = {
   id: "property-id", unitCode: "OP 2 - 62", gang: 2, houseNumber: "62", occupancyStatus: null, active: true, accessLinkActive: false,
@@ -58,5 +58,11 @@ describe("OPAL Atlas layout", () => {
     expect(shouldZoomMapFromWheel({ ctrlKey: false, metaKey: false })).toBe(false);
     expect(shouldZoomMapFromWheel({ ctrlKey: true, metaKey: false })).toBe(true);
     expect(shouldZoomMapFromWheel({ ctrlKey: false, metaKey: true })).toBe(true);
+  });
+
+  it("ignores ordinary map clicks and only captures a point for an explicitly selected house", () => {
+    expect(shouldSetPropertyPosition(false, null)).toBe(false);
+    expect(shouldSetPropertyPosition(true, null)).toBe(false);
+    expect(shouldSetPropertyPosition(true, "property-id")).toBe(true);
   });
 });

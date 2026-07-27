@@ -6,8 +6,8 @@ export const OPAL_ATLAS_MIN_ZOOM = 17;
 /**
  * Atlas is a fixed site plan. It deliberately lives in code rather than in
  * resident data: every physical unit remains discoverable before its family
- * record has been imported. Coordinates are local to the OPAL site plan and
- * can be adjusted here if the physical layout changes.
+ * record has been imported. Coordinates are schematic and must never be
+ * projected onto the satellite map as if they were verified locations.
  */
 export const OPAL_MAP_VIEWBOX = { width: 1600, height: 920 } as const;
 
@@ -70,18 +70,6 @@ export const OPAL_MAP_SLOTS: MapSlot[] = OPAL_MAP_LAYOUT.roads.flatMap((road) =>
     };
   }),
 );
-
-/** Converts the fixed plan geometry into the local, real-world map overlay. */
-export function slotCoordinate(slot: Pick<MapSlot, "x" | "y" | "width" | "height">) {
-  const centerX = slot.x + slot.width / 2;
-  const centerY = slot.y + slot.height / 2;
-  const normalizedX = (centerX - OPAL_MAP_VIEWBOX.width / 2) / OPAL_MAP_VIEWBOX.width;
-  const normalizedY = (centerY - OPAL_MAP_VIEWBOX.height / 2) / OPAL_MAP_VIEWBOX.height;
-  return {
-    latitude: OPAL_ATLAS_CENTER.lat - normalizedY * 0.0022,
-    longitude: OPAL_ATLAS_CENTER.lng + normalizedX * 0.003,
-  };
-}
 
 export function propertyMatchesSlot(property: Pick<PropertyMapSummary, "gang" | "houseNumber">, slot: Pick<MapSlot, "gang" | "houseNumber">) {
   return property.gang === slot.gang && Number(property.houseNumber) === Number(slot.houseNumber);

@@ -1,5 +1,6 @@
 import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
+import { ServicePageHero } from "@/components/service-page-hero";
 import { getPublishedFloorPlans } from "@/lib/portal-services";
 
 export const metadata = { title: "Denah OPAL Tipe 6 x 12" };
@@ -19,15 +20,11 @@ export default async function DenahPage() {
 
   return (
     <div>
-      <section className="bg-action text-ink-inverse">
-        <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-14 sm:px-8 lg:grid-cols-[minmax(0,1.12fr)_minmax(18rem,0.88fr)] lg:items-end lg:px-10 lg:py-20">
-          <div>
-            <p className="text-xs font-extrabold tracking-[0.16em] text-brand-soft">REFERENSI RUMAH</p>
-            <h1 className="public-display mt-5 max-w-3xl text-4xl font-bold leading-[0.96] sm:text-5xl lg:text-6xl">Denah OPAL Tipe 6 x 12.</h1>
-          </div>
-          <p className="max-w-md border-l-2 border-brand-soft pl-5 text-base leading-7 text-ink-inverse/78">Empat lembar denah asli tersedia sebagai galeri web. Gunakan sebagai referensi, bukan pengganti persetujuan renovasi.</p>
-        </div>
-      </section>
+      <ServicePageHero
+        kicker="REFERENSI RUMAH"
+        title="Denah OPAL Tipe 6 x 12."
+        description="Empat lembar denah asli dalam galeri web. Gunakan sebagai referensi, bukan pengganti persetujuan renovasi."
+      />
 
       <section className="mx-auto max-w-[1440px] px-5 py-10 sm:px-8 lg:px-10 lg:py-16">
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-12 lg:gap-7">

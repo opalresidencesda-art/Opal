@@ -10,11 +10,11 @@ export default async function SpesifikasiRumahPage() {
 
   return (
     <div>
-      <ServicePageHero kicker="REFERENSI RUMAH" title="Spesifikasi yang mudah ditemukan saat dibutuhkan." description="Rujukan material asli OPAL. Periksa kondisi lapangan serta konsultasikan kebutuhan renovasi dengan RT sebelum pekerjaan dimulai."><p className="text-sm font-semibold leading-6 text-ink-inverse/80">Catat merek dan kode material sebelum membeli agar hasil renovasi tetap selaras dengan rumah OPAL.</p></ServicePageHero>
+      <ServicePageHero kicker="REFERENSI RUMAH" title="Cek merek dan kode material rumah." description="Rujukan material asli OPAL. Periksa kondisi lapangan dan konsultasikan rencana renovasi dengan RT sebelum pekerjaan dimulai." />
 
       <section className="mx-auto grid max-w-[1100px] gap-10 px-5 py-10 sm:px-8 lg:grid-cols-[minmax(13rem,0.35fr)_minmax(0,1fr)] lg:gap-16 lg:px-10 lg:py-16">
         <aside className="border-t border-line pt-6">
-          <h2 className="text-xl font-bold tracking-[-0.045em] text-ink">Gunakan sebagai rujukan</h2>
+          <h2 className="text-xl font-bold tracking-[-0.045em] text-ink">Sebelum membeli material</h2>
           <p className="mt-3 text-sm leading-6 text-ink-muted">Catat merek dan kode material sebelum membeli. Detail ini membantu hasil renovasi tetap selaras dengan rumah OPAL.</p>
         </aside>
 
@@ -25,13 +25,13 @@ export default async function SpesifikasiRumahPage() {
             if (!items.length) return null;
 
             return (
-              <section key={category} aria-labelledby={`spec-${category.toLowerCase()}`} className="border-t border-line pt-6">
+              <section key={category} aria-labelledby={`spec-${category.toLowerCase()}`} className="grid gap-6 border-t border-line pt-7 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-8">
                 <h2 id={`spec-${category.toLowerCase()}`} className="text-2xl font-bold tracking-[-0.055em] text-ink">{category}</h2>
-                <dl className="mt-5 border-t border-line">
+                <dl className="grid gap-x-8 sm:grid-cols-2">
                   {items.map((item) => (
-                    <div key={item.id ?? `${item.category}-${item.label}`} className="grid gap-2 border-b border-line py-5 pl-4 sm:grid-cols-[minmax(11rem,0.38fr)_minmax(0,1fr)] sm:gap-8 sm:pl-5">
+                    <div key={item.id ?? `${item.category}-${item.label}`} className="border-t border-line py-4 first:border-t-0 sm:first:border-t">
                       <dt className="text-sm font-bold text-ink">{item.label}</dt>
-                      <dd className="text-sm leading-6 text-ink-muted">{item.value}</dd>
+                      <dd className="mt-1.5 text-sm leading-6 text-ink-muted">{item.value}</dd>
                     </div>
                   ))}
                 </dl>

@@ -17,15 +17,15 @@ export default async function PanduanHarmonisPage() {
     <>
       <GuideHashScroll />
       <section className="overflow-hidden bg-action text-ink-inverse">
-        <div className="mx-auto grid max-w-[1440px] overflow-hidden sm:grid-cols-[0.92fr_1.08fr]">
-          <div className="flex items-center px-5 py-14 sm:px-8 lg:px-10 lg:py-20">
-            <div className="max-w-2xl"><p className="flex items-center gap-2 text-[0.72rem] font-bold tracking-[0.14em] text-brand-soft"><BookOpenText size={18} weight="fill" aria-hidden="true" /> PANDUAN HARMONIS</p>
-            <h1 className="public-display mt-5 text-4xl font-bold leading-[0.96] sm:text-5xl lg:text-6xl">Pedoman bertetangga yang selalu siap diakses.</h1>
-            <p className="mt-6 max-w-xl text-base leading-7 text-ink-inverse/78 sm:text-lg">Versi web resmi panduan warga OPAL. Setiap aturan dapat dibagikan lewat tautan langsung dan diperbarui saat kebijakan lingkungan berubah.</p></div>
+        <div className="grid overflow-hidden sm:grid-cols-[0.92fr_1.08fr]">
+          <div className="flex items-center px-5 py-14 sm:py-16 sm:pr-8 sm:pl-[max(2rem,calc((100vw-1440px)/2+2rem))] lg:py-20 lg:pr-10 lg:pl-[max(2.5rem,calc((100vw-1440px)/2+2.5rem))]">
+            <div className="max-w-2xl"><p className="flex items-center gap-2 text-[0.72rem] font-bold tracking-[0.14em] text-brand-highlight"><BookOpenText size={18} weight="fill" aria-hidden="true" /> PANDUAN HARMONIS</p>
+            <h1 className="public-display mt-5 text-4xl font-bold leading-[0.96] sm:text-5xl lg:text-6xl">Cari aturan warga berdasarkan topik.</h1>
+            <p className="mt-6 max-w-xl text-base leading-7 text-ink-inverse/78 sm:text-lg">Buka bagian yang dibutuhkan, bagikan tautannya, dan cek pembaruan dari RT.</p></div>
           </div>
-          <div className="hero-image-drift relative min-h-[300px] sm:min-h-0">
+          <div className="hero-image-drift relative min-h-[300px] overflow-hidden bg-action sm:min-h-0">
             <Image src="/images/opal-neighborhood-hero.png" alt="Lingkungan OPAL Residence" fill priority sizes="(max-width: 640px) 100vw, 55vw" className="object-cover object-[62%_center]" />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,48,41,0.45),transparent_42%)]" aria-hidden="true" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,42,36,0.96)_0%,rgba(3,42,36,0.7)_18%,rgba(3,42,36,0.26)_40%,transparent_58%)]" aria-hidden="true" />
           </div>
         </div>
       </section>

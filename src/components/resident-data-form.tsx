@@ -5,6 +5,7 @@ import { CheckCircle, FileImage, LockKey, PaperPlaneTilt, WarningCircle } from "
 import { createClient } from "@supabase/supabase-js";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { residentSubmissionSchema, type ResidentSubmissionFormInput, type ResidentSubmissionInput } from "@/lib/validation";
 
 const inputClass = "mt-2 min-h-14 w-full rounded-lg border border-line bg-surface px-4 text-base text-ink outline-none transition-[border-color,box-shadow,background-color] placeholder:text-ink-faint focus:border-brand focus:bg-surface-raised focus:ring-4 focus:ring-brand/15";
@@ -48,7 +49,7 @@ function FileField({ id, label, hint, multiple, onFiles, error }: { id: string; 
           <span className="mt-1 block text-[0.9375rem] font-normal leading-6 text-ink-muted">JPG, PNG, WEBP, HEIC, atau HEIF. Maksimal 10 MB per foto.</span>
         </span>
       </span>
-      <input className="mt-4 block w-full cursor-pointer text-[0.9375rem] font-normal text-ink file:mr-3 file:min-h-12 file:cursor-pointer file:rounded-lg file:border-0 file:bg-brand file:px-4 file:text-base file:font-bold file:text-on-action hover:file:bg-brand-deep focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/15" type="file" accept={allowedImages.join(",")} multiple={multiple} {...fieldMetadata(id, true, Boolean(error), true)} onChange={(event) => onFiles(Array.from(event.target.files ?? []))} />
+      <input className="mt-4 block w-full cursor-pointer text-[0.9375rem] font-normal text-ink file:mr-3 file:min-h-12 file:cursor-pointer file:rounded-lg file:border-0 file:bg-brand file:px-4 file:text-base file:font-bold file:text-on-brand hover:file:bg-brand-deep focus:outline-none focus-visible:ring-4 focus-visible:ring-brand/15" type="file" accept={allowedImages.join(",")} multiple={multiple} {...fieldMetadata(id, true, Boolean(error), true)} onChange={(event) => onFiles(Array.from(event.target.files ?? []))} />
     </span>
   </Field>;
 }
@@ -81,6 +82,7 @@ export function ResidentDataForm() {
     const fileError = validateFiles();
     if (fileError) {
       setUploadError(fileError);
+      toast.error("Berkas belum lengkap", { description: fileError });
       return;
     }
     setUploadError("");
@@ -91,6 +93,7 @@ export function ResidentDataForm() {
       ...occupantKtps.map((file, index) => ({ key: `occupantKtp-${index + 1}`, file })),
       { key: "familyCard", file: familyCard! },
     ];
+    const toastId = toast.loading("Mengirim data secara aman...");
 
     try {
       const prepare = await fetch("/api/pendataan-warga/prepare", {
@@ -114,15 +117,19 @@ export function ResidentDataForm() {
       const complete = await fetch("/api/pendataan-warga/complete", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ submissionId: prepared.submissionId, files: uploaded }) });
       const completed = (await complete.json()) as { error?: string; reference?: string; receiptEmailSent?: boolean };
       if (!complete.ok) throw new Error(completed.error ?? "Unggahan tidak dapat diselesaikan.");
+      const successMessage = `Data untuk ${prepared.unitCode} telah diterima. Nomor referensi: ${completed.reference}.${completed.receiptEmailSent ? " Tanda-terima aman telah dikirim ke email Anda." : " Simpan nomor referensi ini; pengurus akan menghubungi Anda bila diperlukan."}`;
       setStatus("success");
-      setMessage(`Data untuk ${prepared.unitCode} telah diterima. Nomor referensi: ${completed.reference}.${completed.receiptEmailSent ? " Tanda-terima aman telah dikirim ke email Anda." : " Simpan nomor referensi ini; pengurus akan menghubungi Anda bila diperlukan."}`);
+      setMessage(successMessage);
+      toast.success("Data warga berhasil dikirim", { id: toastId, description: `Referensi ${completed.reference}` });
       form.reset();
       setResponsibleKtp(null);
       setOccupantKtps([]);
       setFamilyCard(null);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Terjadi kendala saat mengirim formulir.";
       setStatus("error");
-      setMessage(error instanceof Error ? error.message : "Terjadi kendala saat mengirim formulir.");
+      setMessage(errorMessage);
+      toast.error("Pengiriman belum berhasil", { id: toastId, description: errorMessage });
     }
   }
 
@@ -176,7 +183,7 @@ export function ResidentDataForm() {
         <div className="flex max-w-3xl items-start gap-3 border-l-4 border-brand bg-brand-soft/40 px-4 py-4 text-base leading-7 text-ink-muted"><LockKey size={22} className="mt-0.5 shrink-0 text-brand" weight="fill" aria-hidden="true" /><p>Periksa kembali KTP dan KK sebelum mengirim. Berkas disimpan privat untuk pengurus OPAL dan tidak pernah ditampilkan di halaman publik. Bila ada kesalahan unggahan, hubungi pengurus RT untuk penghapusan data.</p></div>
         {uploadError ? <div className="mt-5 flex items-start gap-3 border-l-4 border-danger bg-danger-soft px-4 py-4 text-base font-semibold leading-6 text-danger-deep" role="alert"><WarningCircle size={22} weight="fill" className="mt-0.5 shrink-0" aria-hidden="true" /><span>{uploadError}</span></div> : null}
         {status !== "idle" ? <div className={`mt-5 flex items-start gap-3 border-l-4 px-4 py-4 text-base font-semibold leading-6 ${status === "success" ? "border-brand bg-brand-soft text-ink" : status === "error" ? "border-danger bg-danger-soft text-danger-deep" : "border-line bg-surface-subtle text-ink-muted"}`} role={status === "error" ? "alert" : "status"} aria-live={status === "error" ? "assertive" : "polite"}>{status === "success" ? <CheckCircle size={22} weight="fill" className="mt-0.5 shrink-0" aria-hidden="true" /> : status === "error" ? <WarningCircle size={22} weight="fill" className="mt-0.5 shrink-0" aria-hidden="true" /> : null}<span>{message || "Menyiapkan pengiriman aman. Mohon tunggu."}</span></div> : null}
-        <button disabled={status === "submitting"} aria-disabled={status === "submitting"} className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-action px-6 text-base font-bold text-on-action hover:bg-brand disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"><PaperPlaneTilt size={20} weight="fill" aria-hidden="true" />{status === "submitting" ? "Mengirim dengan aman..." : "Kirim data warga"}</button>
+        <button disabled={status === "submitting"} aria-disabled={status === "submitting"} className="mt-7 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-action px-6 text-base font-bold text-on-action hover:bg-brand hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"><PaperPlaneTilt size={20} weight="fill" aria-hidden="true" />{status === "submitting" ? "Mengirim dengan aman..." : "Kirim data warga"}</button>
       </div>
     </form>
   );
