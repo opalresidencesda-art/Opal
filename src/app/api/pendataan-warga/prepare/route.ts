@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requestBodyExceeds } from "@/lib/request";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { residentSubmissionSchema, unitCode } from "@/lib/validation";
 
@@ -23,6 +24,7 @@ function extensionFor(mime: string) {
 
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured()) return NextResponse.json({ error: "Layanan pendataan belum dikonfigurasi." }, { status: 503 });
+  if (requestBodyExceeds(request, 64 * 1024)) return NextResponse.json({ error: "Permintaan terlalu besar." }, { status: 413 });
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Data formulir tidak valid." }, { status: 422 });
   const { values, files } = parsed.data;

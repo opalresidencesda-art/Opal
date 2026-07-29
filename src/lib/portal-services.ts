@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
+import { getAllCashTransactions } from "@/lib/cash";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 
 export type CashSummary = {
@@ -23,7 +24,7 @@ function client() {
 export async function getPublicCashSummary(): Promise<CashSummary> {
   const supabase = client();
   if (!supabase) return { income: 0, expense: 0, balance: 0, lastUpdated: null, categories: [] };
-  const { data, error } = await supabase.from("cash_transactions").select("transaction_date, category, direction, amount_rupiah").eq("is_public", true).order("transaction_date", { ascending: false });
+  const { data, error } = await getAllCashTransactions(supabase, { publicOnly: true });
   if (error || !data) return { income: 0, expense: 0, balance: 0, lastUpdated: null, categories: [] };
 
   const categoryMap = new Map<string, { income: number; expense: number }>();

@@ -22,7 +22,6 @@ export function SiteFooter() {
             <li><Link className="inline-flex min-h-11 items-center rounded-lg px-1 transition-colors hover:text-brand-highlight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-highlight focus-visible:ring-offset-4 focus-visible:ring-offset-action" href="/panduan-harmonis">Panduan harmonis</Link></li>
             <li><Link className="inline-flex min-h-11 items-center rounded-lg px-1 transition-colors hover:text-brand-highlight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-highlight focus-visible:ring-offset-4 focus-visible:ring-offset-action" href="/kas">Kas OPAL</Link></li>
             <li><Link className="inline-flex min-h-11 items-center rounded-lg px-1 transition-colors hover:text-brand-highlight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-highlight focus-visible:ring-offset-4 focus-visible:ring-offset-action" href="/pendataan-warga">Pendataan warga</Link></li>
-            <li><Link className="inline-flex min-h-11 items-center rounded-lg px-1 transition-colors hover:text-brand-highlight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-highlight focus-visible:ring-offset-4 focus-visible:ring-offset-action" href="/layanan">Layanan warga</Link></li>
             <li><Link className="inline-flex min-h-11 items-center rounded-lg px-1 transition-colors hover:text-brand-highlight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-highlight focus-visible:ring-offset-4 focus-visible:ring-offset-action" href="/admin">Admin RT</Link></li>
           </ul>
         </div>
@@ -39,7 +38,7 @@ export function SiteFooter() {
           <p className="mt-3 max-w-xs text-[0.95rem] leading-7 text-ink-inverse/75">Tetap aktif selama seluruh informasi dipindahkan ke portal ini.</p>
         </div>
       </div>
-      <div className="border-t border-white/12 px-5 py-6 text-center text-sm font-medium leading-6 text-ink-inverse/55 sm:px-8">
+      <div className="border-t border-white/12 px-5 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-6 text-center text-sm font-medium leading-6 text-ink-inverse/55 sm:px-8 sm:py-6">
         Hak cipta {new Date().getFullYear()} OPAL Residence. Informasi dikelola oleh RT OPAL.
       </div>
     </footer>

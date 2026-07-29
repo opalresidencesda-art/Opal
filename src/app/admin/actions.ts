@@ -24,14 +24,15 @@ function boolValue(formData: FormData, key: string) {
   return formData.get(key) === "on";
 }
 
-function success(message: string) {
+function success(message: string, returnTo = "/admin") {
   revalidatePath("/");
   revalidatePath("/panduan-harmonis");
   revalidatePath("/layanan");
   revalidatePath("/kas");
   revalidatePath("/admin");
   revalidatePath("/admin/peta-rumah");
-  redirect(`/admin?message=${encodeURIComponent(message)}`);
+  const safeReturnTo = /^\/admin(?:\/|$)/.test(returnTo) ? returnTo : "/admin";
+  redirect(`${safeReturnTo}?message=${encodeURIComponent(message)}`);
 }
 
 const mapPropertySchema = z.object({
@@ -416,14 +417,21 @@ export async function removePropertyMapPosition(propertyId: string) {
 export async function saveCashTransaction(formData: FormData) {
   const { supabase } = await requireAdmin();
   const id = textValue(formData, "id", false);
+  const returnTo = textValue(formData, "returnTo", false) || "/admin";
   const amount = Number(textValue(formData, "amountRupiah"));
   const direction = textValue(formData, "direction");
+  const transactionDate = textValue(formData, "transactionDate");
+  const category = textValue(formData, "category");
+  const description = textValue(formData, "description", false);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(transactionDate)) throw new Error("Tanggal transaksi tidak valid.");
+  if (category.length > 120) throw new Error("Kategori transaksi terlalu panjang.");
+  if (description.length > 500) throw new Error("Keterangan transaksi terlalu panjang.");
   if (!Number.isInteger(amount) || amount < 1 || amount > 1_000_000_000) throw new Error("Nominal Kas tidak valid.");
   if (direction !== "income" && direction !== "expense") throw new Error("Arah transaksi tidak valid.");
   const payload = {
-    transaction_date: textValue(formData, "transactionDate"),
-    category: textValue(formData, "category"),
-    description: textValue(formData, "description", false),
+    transaction_date: transactionDate,
+    category,
+    description,
     direction,
     amount_rupiah: amount,
     is_public: boolValue(formData, "isPublic"),
@@ -439,11 +447,11 @@ export async function saveCashTransaction(formData: FormData) {
       p_is_public: payload.is_public,
     });
     if (error) throw new Error("Koreksi transaksi Kas tidak dapat disimpan beserta riwayatnya.");
-    return success("Koreksi transaksi Kas telah disimpan beserta riwayat sebelumnya.");
+    return success("Koreksi transaksi Kas telah disimpan beserta riwayat sebelumnya.", returnTo);
   }
   const { error } = await supabase.from("cash_transactions").insert(payload);
   if (error) throw new Error("Transaksi Kas tidak dapat disimpan.");
-  success("Transaksi Kas telah disimpan.");
+  success("Transaksi Kas telah disimpan.", returnTo);
 }
 
 export async function savePropertyContribution(formData: FormData) {

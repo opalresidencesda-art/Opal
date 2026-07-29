@@ -42,6 +42,11 @@ export type PortalData = {
   guideSections: GuideSection[];
 };
 
+export function getNextAnnouncementIndex(index: number, count: number, step = 1) {
+  if (count < 1) return 0;
+  return (index + step + count) % count;
+}
+
 export function sortGuideSections(sections: GuideSection[]) {
   return [...sections].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
 }

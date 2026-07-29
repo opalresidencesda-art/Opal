@@ -1,8 +1,8 @@
-import { BookOpenText, Info } from "@phosphor-icons/react/dist/ssr";
 import Image from "next/image";
-import { GuideHashScroll } from "@/components/guide-hash-scroll";
 import { GuideSectionArticle } from "@/components/guide-section";
 import { GuideSectionNav } from "@/components/guide-section-nav";
+import { GuideTopicIndex } from "@/components/guide-topic-index";
+import { PublicHashScroll } from "@/components/public-hash-scroll";
 import { getPortalData } from "@/lib/data";
 
 export const metadata = {
@@ -15,11 +15,11 @@ export default async function PanduanHarmonisPage() {
 
   return (
     <>
-      <GuideHashScroll />
+      <PublicHashScroll />
       <section className="overflow-hidden bg-action text-ink-inverse">
         <div className="grid overflow-hidden sm:grid-cols-[0.92fr_1.08fr]">
           <div className="flex items-center px-5 py-14 sm:py-16 sm:pr-8 sm:pl-[max(2rem,calc((100vw-1440px)/2+2rem))] lg:py-20 lg:pr-10 lg:pl-[max(2.5rem,calc((100vw-1440px)/2+2.5rem))]">
-            <div className="max-w-2xl"><p className="flex items-center gap-2 text-[0.72rem] font-bold tracking-[0.14em] text-brand-highlight"><BookOpenText size={18} weight="fill" aria-hidden="true" /> PANDUAN HARMONIS</p>
+            <div className="max-w-2xl"><p className="public-kicker text-brand-highlight">Panduan harmonis</p>
             <h1 className="public-display mt-5 text-4xl font-bold leading-[0.96] sm:text-5xl lg:text-6xl">Cari aturan warga berdasarkan topik.</h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-ink-inverse/78 sm:text-lg">Buka bagian yang dibutuhkan, bagikan tautannya, dan cek pembaruan dari RT.</p></div>
           </div>
@@ -30,14 +30,15 @@ export default async function PanduanHarmonisPage() {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-[1440px] gap-8 px-5 py-10 sm:px-8 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-16 lg:px-10 lg:py-16">
+      <GuideTopicIndex sections={data.guideSections} />
+
+      <div className="mx-auto grid max-w-[1440px] gap-8 px-5 pb-14 sm:px-8 sm:pb-20 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-16 lg:px-10 lg:pb-24">
         <GuideSectionNav sections={data.guideSections} />
         <div className="min-w-0">
-          <div className="mb-12 flex gap-3 border-l-2 border-brand px-5 py-1 text-sm leading-6 text-ink-muted">
-            <Info className="mt-0.5 shrink-0 text-brand" size={20} weight="fill" aria-hidden="true" />
-            <p>Nominal iuran di halaman ini adalah informasi aktif. Perubahan nominal akan diumumkan RT dan ditampilkan beserta tanggal berlakunya.</p>
+          <div className="mb-12 max-w-3xl rounded-[1.15rem] border border-line bg-surface-subtle px-5 py-5 text-sm leading-6 text-ink-muted sm:px-6">
+            <p>Nominal iuran di halaman ini adalah informasi aktif. Perubahan nominal diumumkan RT dan ditampilkan beserta tanggal berlakunya.</p>
           </div>
-          <div className="max-w-3xl">
+          <div className="max-w-[72rem]">
             {data.guideSections.map((section) => <GuideSectionArticle key={section.id ?? section.slug} section={section} fees={data.fees} />)}
           </div>
         </div>

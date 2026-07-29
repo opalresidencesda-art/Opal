@@ -2,6 +2,7 @@
 
 import { ThemeProvider, useTheme } from "next-themes";
 import { Toaster } from "sonner";
+import { OpalAIAssistant } from "@/components/opal-ai-assistant";
 
 function AppToaster() {
   const { resolvedTheme } = useTheme();
@@ -27,6 +28,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider attribute="data-theme" defaultTheme="system" enableSystem disableTransitionOnChange>
       {children}
+      <OpalAIAssistant />
       <AppToaster />
     </ThemeProvider>
   );

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sendSafeReceipt } from "@/lib/email";
+import { requestBodyExceeds } from "@/lib/request";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -17,6 +18,7 @@ const bodySchema = z.object({ submissionId: z.string().uuid(), files: z.array(ev
 
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured()) return NextResponse.json({ error: "Layanan pendataan belum dikonfigurasi." }, { status: 503 });
+  if (requestBodyExceeds(request, 128 * 1024)) return NextResponse.json({ error: "Permintaan terlalu besar." }, { status: 413 });
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Data unggahan tidak valid." }, { status: 422 });
   const { submissionId, files } = parsed.data;

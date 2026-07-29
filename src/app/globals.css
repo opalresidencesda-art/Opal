@@ -149,6 +149,10 @@ button:active {
   text-wrap: balance;
 }
 
+.hash-scroll-heading:focus-visible {
+  outline: none;
+}
+
 .public-rule {
   height: 2px;
   width: 3rem;
@@ -178,15 +182,15 @@ button:active {
   transform: scaleY(1);
 }
 
-@keyframes opal-photo-breathe {
-  from { transform: scale(1.015); }
-  to { transform: scale(1.07); }
+@keyframes opal-photo-pullback {
+  from { transform: scale(1.16) translate3d(-1.2%, -0.6%, 0); }
+  to { transform: scale(1) translate3d(0, 0, 0); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .hero-image-drift > img,
   .home-hero-image {
-    animation: opal-photo-breathe 18s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: opal-photo-pullback 16s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 }
 
@@ -298,6 +302,31 @@ button:active {
 .markdown-content strong {
   color: var(--ink);
   font-weight: 720;
+}
+
+.guide-prose .markdown-content {
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.guide-prose .markdown-content h2 {
+  margin-top: 3.25rem;
+}
+
+.guide-prose .markdown-content h3 {
+  margin-top: 2.2rem;
+  color: var(--ink);
+  font-size: 1.1rem;
+}
+
+.guide-prose .markdown-content ul {
+  padding-left: 1.15rem;
+}
+
+.guide-prose .markdown-content ol {
+  max-width: 50rem;
+  gap: 1rem;
+  padding-left: 1.55rem;
 }
 
 @media (prefers-contrast: more) {

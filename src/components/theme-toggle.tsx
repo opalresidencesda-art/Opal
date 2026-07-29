@@ -19,7 +19,7 @@ export function ThemeToggle({ inverse = false }: { inverse?: boolean }) {
         window.localStorage.setItem("theme", nextTheme);
         window.dispatchEvent(new Event("opal-theme-change"));
       }}
-      className={`grid size-10 shrink-0 place-items-center rounded-xl border transition-colors focus-visible:outline-none focus-visible:ring-2 ${
+      className={`grid size-10 shrink-0 place-items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 ${
         inverse
           ? "border-white/18 bg-white/8 text-ink-inverse hover:bg-white/16 focus-visible:ring-brand-highlight focus-visible:ring-offset-2 focus-visible:ring-offset-action"
           : "border-line bg-surface-raised text-ink hover:border-brand hover:text-brand focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface"

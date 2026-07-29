@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sendSafeReceipt } from "@/lib/email";
+import { requestBodyExceeds } from "@/lib/request";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { documentRequestTypes, requestSchemaFor, unitCode } from "@/lib/validation";
 
@@ -10,6 +11,7 @@ const envelopeSchema = z.object({ type: z.enum(documentRequestTypes), values: z.
 
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured()) return NextResponse.json({ error: "Layanan surat belum dikonfigurasi." }, { status: 503 });
+  if (requestBodyExceeds(request, 64 * 1024)) return NextResponse.json({ error: "Permintaan terlalu besar." }, { status: 413 });
   const envelope = envelopeSchema.safeParse(await request.json());
   if (!envelope.success) return NextResponse.json({ error: "Jenis surat tidak valid." }, { status: 422 });
   const values = requestSchemaFor(envelope.data.type).safeParse(envelope.data.values);

@@ -50,16 +50,29 @@ Jalankan selalu ke proyek staging lebih dulu. Skrip tidak langsung mempublikasik
 
 ```powershell
 # Periksa hasil normalisasi workbook tanpa menulis data.
-$env:OPAL_KAS_XLSX = 'C:\aman\Kas OPAL.xlsx'
+$env:OPAL_KAS_XLSX = 'C:\Users\user\Downloads\Kas Opal.xlsx'
 cmd /c npm run import:kas -- --dry-run
 
-# Jalankan impor idempoten setelah konfigurasi env lengkap.
+# Jalankan impor idempoten. Baris masuk sebagai privat terlebih dahulu.
 cmd /c npm run import:kas
+
+# Setelah angka dan jumlah baris cocok dengan workbook, buka batch impor ke ringkasan publik.
+cmd /c npm run import:kas -- --publish
+
+# Jika parser/schema diperbaiki, refresh batch workbook yang sama secara terarah.
+# Hanya batch dengan source_name + source_sha256 yang sama yang diganti.
+cmd /c npm run import:kas -- --replace --publish
 
 # Data Google Form + berkas identitas memakai manifest privat JSON, bukan Git.
 $env:OPAL_RESIDENT_MANIFEST = 'C:\aman\resident-manifest.json'
 cmd /c npm run import:residents
 ```
+
+`--publish` hanya mengubah transaksi dari workbook yang sama (`source_imports.source_sha256`) menjadi publik; transaksi baru dari `/admin` tetap mengikuti pilihan toggle publik. Skrip juga mempertahankan baris `Cut OFF` sebagai saldo bawaan agar hasil akhirnya tidak kehilangan carry-over dari pembukuan lama.
+
+`--replace` dipakai hanya untuk memperbarui batch workbook yang sama setelah parser atau pemetaan kolom berubah. Skrip menghapus transaksi, kontribusi, dan catatan impor pada `source_imports` yang memiliki nama sumber serta hash file identik, lalu membuat batch baru; data dari sumber lain tidak disentuh.
+
+Nominal disimpan sebagai rupiah bulat (`amount_rupiah`); angka desimal dari bunga/pajak pada workbook dibulatkan per transaksi. Cocokkan `balanceRupiah` dengan `workbookBalanceRupiah` pada output dry-run dan catat selisih pembulatan sebelum publikasi.
 
 `scripts/import-resident-manifest.mjs` menerima JSON array berisi data rumah dan daftar path bukti lokal. File mentah Google Form/Drive tidak disimpan di repository. Sumber Google lama dipertahankan sampai RT menyetujui pemeriksaan parity.
 
@@ -69,6 +82,8 @@ cmd /c npm run import:residents
 cmd /c npm run test
 cmd /c npm run lint
 cmd /c npm run build
+cmd /c npm audit --omit=dev
+cmd /c npm run test:e2e
 ```
 
 Sebelum rilis: uji pengiriman pendataan dengan data sintetis, akses token rumah, review dan penerbitan surat, unduh PDF, pembatasan akun non-admin, serta halaman mobile. Setelah itu arahkan masing-masing tombol Linktree ke halaman native yang setara.
