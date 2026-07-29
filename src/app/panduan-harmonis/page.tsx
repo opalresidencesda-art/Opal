@@ -12,6 +12,7 @@ export const metadata = {
 
 export default async function PanduanHarmonisPage() {
   const data = await getPortalData();
+  const hasSections = data.guideSections.length > 0;
 
   return (
     <>
@@ -35,12 +36,16 @@ export default async function PanduanHarmonisPage() {
       <div className="mx-auto grid max-w-[1440px] gap-8 px-5 pb-14 sm:px-8 sm:pb-20 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-16 lg:px-10 lg:pb-24">
         <GuideSectionNav sections={data.guideSections} />
         <div className="min-w-0">
-          <div className="mb-12 max-w-3xl rounded-[1.15rem] border border-line bg-surface-subtle px-5 py-5 text-sm leading-6 text-ink-muted sm:px-6">
-            <p>Nominal iuran di halaman ini adalah informasi aktif. Perubahan nominal diumumkan RT dan ditampilkan beserta tanggal berlakunya.</p>
-          </div>
-          <div className="max-w-[72rem]">
-            {data.guideSections.map((section) => <GuideSectionArticle key={section.id ?? section.slug} section={section} fees={data.fees} />)}
-          </div>
+          {hasSections ? (
+            <>
+              <div className="mb-12 max-w-3xl rounded-[1.15rem] border border-line bg-surface-subtle px-5 py-5 text-sm leading-6 text-ink-muted sm:px-6">
+                <p>Nominal iuran di halaman ini hanya ditampilkan bila jadwal aktif sudah diterbitkan RT.</p>
+              </div>
+              <div className="max-w-[72rem]">
+                {data.guideSections.map((section) => <GuideSectionArticle key={section.id ?? section.slug} section={section} fees={data.fees} />)}
+              </div>
+            </>
+          ) : <p className="rounded-[1.15rem] border border-line bg-surface-raised px-5 py-8 text-sm leading-6 text-ink-muted sm:px-6">Panduan harmonis belum tersedia. RT akan menerbitkan topik dan detail aturan setelah kontennya diverifikasi.</p>}
         </div>
       </div>
     </>

@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 import {
-  defaultPortalData,
   sortGuideSections,
   type Announcement,
   type FeeSchedule,
@@ -103,7 +102,7 @@ function mapGuideSection(item: DatabaseGuideSection): GuideSection {
 
 export async function getPortalData(): Promise<PortalData> {
   const supabase = publicClient();
-  if (!supabase) return defaultPortalData;
+  if (!supabase) return { fees: [], announcements: [], resources: [], guideSections: [] };
 
   const [feesResult, announcementsResult, resourcesResult, sectionsResult] = await Promise.all([
     supabase.from("fee_schedules").select("*").eq("is_active", true).order("effective_from", { ascending: false }),
@@ -112,20 +111,10 @@ export async function getPortalData(): Promise<PortalData> {
     supabase.from("guide_sections").select("*").eq("published", true).order("sort_order"),
   ]);
 
-  if (feesResult.error || announcementsResult.error || resourcesResult.error || sectionsResult.error) {
-    return defaultPortalData;
-  }
-
   return {
-    fees: feesResult.data.length ? (feesResult.data as DatabaseFee[]).map(mapFee) : defaultPortalData.fees,
-    announcements: announcementsResult.data.length
-      ? (announcementsResult.data as DatabaseAnnouncement[]).map(mapAnnouncement)
-      : defaultPortalData.announcements,
-    resources: resourcesResult.data.length
-      ? (resourcesResult.data as DatabaseResource[]).map(mapResource)
-      : defaultPortalData.resources,
-    guideSections: sectionsResult.data.length
-      ? sortGuideSections((sectionsResult.data as DatabaseGuideSection[]).map(mapGuideSection))
-      : defaultPortalData.guideSections,
+    fees: feesResult.error ? [] : (feesResult.data as DatabaseFee[]).map(mapFee),
+    announcements: announcementsResult.error ? [] : (announcementsResult.data as DatabaseAnnouncement[]).map(mapAnnouncement),
+    resources: resourcesResult.error ? [] : (resourcesResult.data as DatabaseResource[]).map(mapResource),
+    guideSections: sectionsResult.error ? [] : sortGuideSections((sectionsResult.data as DatabaseGuideSection[]).map(mapGuideSection)),
   };
 }

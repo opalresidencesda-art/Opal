@@ -29,7 +29,11 @@ test("semua halaman publik utama dapat dibuka tanpa overflow horizontal", async 
   for (const route of routes) {
     const response = await page.goto(route, { timeout: 60_000, waitUntil: "domcontentloaded" });
     expect(response?.ok(), `${route} gagal dimuat`).toBe(true);
-    await expect(page.locator("h1")).toBeVisible();
+    if (route === "/layanan") {
+      await expect(page.getByRole("heading", { name: "Pilih kebutuhan Anda." })).toBeVisible();
+    } else {
+      await expect(page.locator("h1")).toBeVisible();
+    }
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       `${route} mengalami overflow horizontal`,
@@ -59,20 +63,20 @@ test("pencarian Beranda membawa warga ke informasi portal yang sesuai", async ({
 
   await page.goto("/");
   await search.fill("parkir");
-  await expect(page.getByRole("option", { name: /Parkir mobil/ })).toHaveAttribute("href", "/panduan-harmonis#parkir");
+  await expect(page.getByRole("option", { name: /Panduan Harmonis/ })).toHaveAttribute("href", "/panduan-harmonis");
   await search.press("Escape");
   await expect(page.getByRole("listbox", { name: "Hasil pencarian" })).toHaveCount(0);
 
   await search.fill("iuran");
-  await expect(page.getByRole("option", { name: /Iuran Pondok Tjandra/ })).toHaveAttribute("href", "#iuran");
+  await expect(page.getByRole("option", { name: /Iuran aktif/ })).toHaveAttribute("href", "#iuran");
   await search.press("Enter");
   await expect(page).toHaveURL(/\/#iuran$/);
 
   await page.goto("/");
-  await search.fill("format website");
-  await expect(page.getByRole("option", { name: /Panduan warga kini tersedia dalam format website/ })).toHaveAttribute("href", "#pengumuman");
+  await search.fill("petugas");
+  await expect(page.getByRole("option", { name: /Petugas Pos & Taman/ })).toHaveAttribute("href", "/petugas");
   await search.press("Enter");
-  await expect(page).toHaveURL(/\/#pengumuman$/);
+  await expect(page).toHaveURL(/\/petugas$/);
 });
 
 test("Beranda mempertahankan pengumuman dan tidak overflow di kedua tema", async ({ page }) => {

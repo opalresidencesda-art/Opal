@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/admin";
 import { renderOfficialDocument, type DocumentSettings } from "@/lib/documents";
 import { formatDocumentNumber } from "@/lib/document-number";
 import { sanitizeMarkdown } from "@/lib/markdown";
+import { isFloorPlanAssetPath } from "@/lib/storage-paths";
 import { createAccessToken, hashAccessToken } from "@/lib/security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
@@ -226,27 +227,33 @@ export async function reviewResidentSubmission(formData: FormData) {
   const status = textValue(formData, "status");
   if (!["in_review", "needs_revision", "approved", "rejected"].includes(status)) throw new Error("Status pendataan tidak valid.");
   const note = textValue(formData, "adminNote", false);
-  const { data: submission, error: lookupError } = await supabase.from("resident_submissions").select("property_id,payload").eq("id", id).single();
+  const { data: submission, error: lookupError } = await supabase.from("resident_submissions").select("payload").eq("id", id).single();
   if (lookupError || !submission) throw new Error("Pendataan tidak ditemukan.");
+  const reviewedAt = new Date().toISOString();
+  let approvalValues: Record<string, string | number | null> = {};
   if (status === "approved") {
     const parsed = residentSubmissionSchema.safeParse(submission.payload);
     if (!parsed.success) throw new Error("Data pendataan tidak memenuhi format saat ini.");
     const values = parsed.data;
-    const { error: profileError } = await supabase.from("resident_profiles").upsert({
-      property_id: submission.property_id,
-      responsible_name: values.responsibleName,
-      responsible_address: values.responsibleAddress,
-      whatsapp: values.whatsapp,
-      head_of_household_name: values.headOfHouseholdName,
-      head_of_household_occupation: values.headOfHouseholdOccupation,
-      occupants_count: values.occupantsCount,
-      contact_email: values.email,
-    }, { onConflict: "property_id" });
-    if (profileError) throw new Error("Profil rumah tidak dapat disahkan.");
-    const { error: propertyError } = await supabase.from("properties").update({ occupancy_status: values.houseStatus }).eq("id", submission.property_id);
-    if (propertyError) throw new Error("Status rumah tidak dapat diperbarui.");
+    approvalValues = {
+      p_responsible_name: values.responsibleName,
+      p_responsible_address: values.responsibleAddress,
+      p_whatsapp: values.whatsapp,
+      p_head_of_household_name: values.headOfHouseholdName,
+      p_head_of_household_occupation: values.headOfHouseholdOccupation,
+      p_occupants_count: values.occupantsCount,
+      p_contact_email: values.email,
+      p_occupancy_status: values.houseStatus,
+    };
   }
-  const { error } = await supabase.from("resident_submissions").update({ status, admin_note: note || null, reviewed_by: email, reviewed_at: new Date().toISOString() }).eq("id", id);
+  const { error } = await supabase.rpc("review_resident_submission", {
+    p_id: id,
+    p_status: status,
+    p_admin_note: note || null,
+    p_reviewed_by: email,
+    p_reviewed_at: reviewedAt,
+    ...approvalValues,
+  });
   if (error) throw new Error("Status pendataan tidak dapat disimpan.");
   success("Status pendataan warga telah diperbarui.");
 }
@@ -256,10 +263,13 @@ export async function reviewServiceRequest(formData: FormData) {
   const id = textValue(formData, "id");
   const status = textValue(formData, "status");
   if (!["in_review", "needs_revision", "approved", "rejected"].includes(status)) throw new Error("Status surat tidak valid.");
-  const { data: current, error: lookupError } = await supabase.from("service_requests").select("status").eq("id", id).single();
-  if (lookupError || !current) throw new Error("Permohonan surat tidak ditemukan.");
-  if (current.status === "issued") throw new Error("Surat yang sudah diterbitkan tidak dapat diubah melalui antrean.");
-  const { error } = await supabase.from("service_requests").update({ status, admin_note: textValue(formData, "adminNote", false) || null, reviewed_by: email, reviewed_at: new Date().toISOString() }).eq("id", id);
+  const { error } = await supabase.rpc("review_service_request_status", {
+    p_id: id,
+    p_status: status,
+    p_admin_note: textValue(formData, "adminNote", false) || null,
+    p_reviewed_by: email,
+    p_reviewed_at: new Date().toISOString(),
+  });
   if (error) throw new Error("Status permohonan tidak dapat disimpan.");
   success("Status permohonan surat telah diperbarui.");
 }
@@ -299,10 +309,20 @@ export async function issueServiceRequest(formData: FormData) {
   const adminStorage = createSupabaseAdminClient();
   const { error: uploadError } = await adminStorage.storage.from("document-exports").upload(storagePath, bytes, { contentType: "application/pdf", upsert: false });
   if (uploadError) throw new Error("PDF surat tidak dapat disimpan secara privat.");
-  const { error: issuanceError } = await supabase.from("document_issuances").insert({ request_id: requestId, serial_number: serial, issue_year: year, document_number: number, storage_path: storagePath, snapshot: { settings, payload: requestRow.payload }, issued_by: email });
-  if (issuanceError) throw new Error("Arsip penerbitan surat tidak dapat dibuat.");
-  const { error: statusError } = await supabase.from("service_requests").update({ status: "issued", reviewed_by: email, reviewed_at: issuedAt.toISOString() }).eq("id", requestId);
-  if (statusError) throw new Error("Surat telah diarsipkan, namun status belum diperbarui.");
+  const { error: issuanceError } = await supabase.rpc("finalize_document_issuance", {
+    p_request_id: requestId,
+    p_serial: serial,
+    p_year: year,
+    p_document_number: number,
+    p_storage_path: storagePath,
+    p_snapshot: { settings, payload: requestRow.payload },
+    p_issued_by: email,
+    p_issued_at: issuedAt.toISOString(),
+  });
+  if (issuanceError) {
+    await adminStorage.storage.from("document-exports").remove([storagePath]);
+    throw new Error("Arsip penerbitan surat tidak dapat dibuat.");
+  }
   success("PDF surat resmi telah diterbitkan dan diarsipkan privat.");
 }
 
@@ -599,19 +619,35 @@ export async function saveFloorPlanAsset(formData: FormData) {
   const file = formData.get("file");
   const sortOrder = Number(textValue(formData, "sortOrder"));
   if (!Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Urutan denah tidak valid.");
-  let storagePath = textValue(formData, "storagePath", false);
+  const existingResult = id
+    ? await supabase.from("floor_plan_assets").select("storage_path").eq("id", id).maybeSingle()
+    : { data: null, error: null };
+  if (existingResult.error || (id && !existingResult.data)) throw new Error("Aset denah yang akan diubah tidak ditemukan.");
+  const existingStoragePath = typeof existingResult.data?.storage_path === "string" ? existingResult.data.storage_path : null;
+  let storagePath = existingStoragePath ?? "";
+  let uploadedStoragePath: string | null = null;
   if (file && typeof file === "object" && "arrayBuffer" in file && "size" in file && "type" in file && file.size > 0) {
     const upload = file as File;
     if (upload.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(upload.type)) throw new Error("Denah harus berupa JPG, PNG, atau WEBP maksimal 5 MB.");
     const extension = upload.type === "image/png" ? "png" : upload.type === "image/webp" ? "webp" : "jpg";
-    storagePath = `floor-plans/${randomUUID()}.${extension}`;
+    uploadedStoragePath = `floor-plans/${randomUUID()}.${extension}`;
+    storagePath = uploadedStoragePath;
     const { error: uploadError } = await createSupabaseAdminClient().storage.from("opal-assets").upload(storagePath, Buffer.from(await upload.arrayBuffer()), { contentType: upload.type, upsert: false });
     if (uploadError) throw new Error("Berkas denah tidak dapat diunggah.");
   }
   if (!storagePath) throw new Error("Unggah berkas denah terlebih dahulu.");
+  if (!isFloorPlanAssetPath(storagePath)) {
+    if (uploadedStoragePath) await createSupabaseAdminClient().storage.from("opal-assets").remove([uploadedStoragePath]);
+    throw new Error("Path denah tidak valid.");
+  }
   const payload = { title: textValue(formData, "title"), alt_text: textValue(formData, "altText"), storage_path: storagePath, published: boolValue(formData, "published"), sort_order: sortOrder };
   const { error } = id ? await supabase.from("floor_plan_assets").update(payload).eq("id", id) : await supabase.from("floor_plan_assets").insert(payload);
-  if (error) throw new Error("Aset denah tidak dapat disimpan.");
+  if (error) {
+    if (uploadedStoragePath) await createSupabaseAdminClient().storage.from("opal-assets").remove([uploadedStoragePath]);
+    throw new Error("Aset denah tidak dapat disimpan.");
+  }
+  const oldStoragePath = existingStoragePath && existingStoragePath !== storagePath && isFloorPlanAssetPath(existingStoragePath) ? existingStoragePath : null;
+  if (oldStoragePath) await createSupabaseAdminClient().storage.from("opal-assets").remove([oldStoragePath]);
   revalidatePath("/denah");
   success("Aset denah telah disimpan.");
 }

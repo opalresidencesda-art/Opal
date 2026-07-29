@@ -48,6 +48,21 @@ export function FeeList({ fees, compact = false, variant = "default" }: FeeListP
   const activeFees = getActiveFees(fees);
 
   if (variant === "home") return <HomeFeeList fees={activeFees} />;
+  if (!activeFees.length) {
+    return (
+      <div>
+        {!compact ? (
+          <div className="mb-9">
+            <div>
+              <p className="text-[0.7rem] font-semibold text-brand">Iuran aktif</p>
+              <h2 className="mt-2 text-[1.2rem] font-bold tracking-[-0.05em] text-ink sm:text-2xl">Per rumah, per bulan</h2>
+            </div>
+          </div>
+        ) : null}
+        <p className="border-t border-line py-7 text-[0.8rem] leading-6 text-ink-muted">Nominal iuran aktif belum diterbitkan. RT akan menampilkan rincian setelah jadwal resmi dipublikasikan.</p>
+      </div>
+    );
+  }
 
   return (
     <div>

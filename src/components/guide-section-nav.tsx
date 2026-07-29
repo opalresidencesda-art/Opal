@@ -8,6 +8,8 @@ export function GuideSectionNav({ sections }: { sections: GuideSection[] }) {
     window.location.hash = slug;
   };
 
+  if (!sections.length) return null;
+
   return (
     <>
       <label className="relative block lg:hidden">

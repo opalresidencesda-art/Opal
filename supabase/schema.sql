@@ -678,6 +678,129 @@ create policy "Admins manage floor plans" on public.floor_plan_assets for all us
 drop policy if exists "Admins manage source imports" on public.source_imports;
 create policy "Admins manage source imports" on public.source_imports for all using (public.is_opal_admin()) with check (public.is_opal_admin());
 
+create or replace function public.review_resident_submission(
+  p_id uuid,
+  p_status text,
+  p_admin_note text,
+  p_reviewed_by text,
+  p_reviewed_at timestamptz,
+  p_responsible_name text default null,
+  p_responsible_address text default null,
+  p_whatsapp text default null,
+  p_head_of_household_name text default null,
+  p_head_of_household_occupation text default null,
+  p_occupants_count integer default null,
+  p_contact_email text default null,
+  p_occupancy_status text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_submission public.resident_submissions%rowtype;
+begin
+  if not public.is_opal_admin() then raise exception 'not authorized'; end if;
+  if p_status not in ('in_review', 'needs_revision', 'approved', 'rejected') then raise exception 'invalid resident submission status'; end if;
+
+  select * into current_submission from public.resident_submissions where id = p_id for update;
+  if not found then raise exception 'resident submission not found'; end if;
+
+  if p_status = 'approved' then
+    if p_responsible_name is null
+      or p_responsible_address is null
+      or p_whatsapp is null
+      or p_head_of_household_name is null
+      or p_head_of_household_occupation is null
+      or p_occupants_count is null
+      or p_contact_email is null
+      or p_occupancy_status is null
+    then
+      raise exception 'resident profile payload missing';
+    end if;
+
+    insert into public.resident_profiles (
+      property_id,
+      responsible_name,
+      responsible_address,
+      whatsapp,
+      head_of_household_name,
+      head_of_household_occupation,
+      occupants_count,
+      contact_email
+    )
+    values (
+      current_submission.property_id,
+      p_responsible_name,
+      p_responsible_address,
+      p_whatsapp,
+      p_head_of_household_name,
+      p_head_of_household_occupation,
+      p_occupants_count,
+      p_contact_email
+    )
+    on conflict (property_id)
+    do update set
+      responsible_name = excluded.responsible_name,
+      responsible_address = excluded.responsible_address,
+      whatsapp = excluded.whatsapp,
+      head_of_household_name = excluded.head_of_household_name,
+      head_of_household_occupation = excluded.head_of_household_occupation,
+      occupants_count = excluded.occupants_count,
+      contact_email = excluded.contact_email;
+
+    update public.properties
+    set occupancy_status = p_occupancy_status
+    where id = current_submission.property_id;
+  end if;
+
+  update public.resident_submissions
+  set
+    status = p_status,
+    admin_note = nullif(btrim(coalesce(p_admin_note, '')), ''),
+    reviewed_by = p_reviewed_by,
+    reviewed_at = p_reviewed_at
+  where id = p_id;
+end;
+$$;
+
+grant execute on function public.review_resident_submission(uuid, text, text, text, timestamptz, text, text, text, text, text, integer, text, text) to authenticated;
+
+create or replace function public.review_service_request_status(
+  p_id uuid,
+  p_status public.service_request_status,
+  p_admin_note text,
+  p_reviewed_by text,
+  p_reviewed_at timestamptz
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_request public.service_requests%rowtype;
+begin
+  if not public.is_opal_admin() then raise exception 'not authorized'; end if;
+  if p_status not in ('in_review', 'needs_revision', 'approved', 'rejected') then raise exception 'invalid service request status'; end if;
+
+  select * into current_request from public.service_requests where id = p_id for update;
+  if not found then raise exception 'service request not found'; end if;
+  if current_request.status = 'issued' then raise exception 'service request already issued'; end if;
+
+  update public.service_requests
+  set
+    status = p_status,
+    admin_note = nullif(btrim(coalesce(p_admin_note, '')), ''),
+    reviewed_by = p_reviewed_by,
+    reviewed_at = p_reviewed_at
+  where id = p_id;
+end;
+$$;
+
+grant execute on function public.review_service_request_status(uuid, public.service_request_status, text, text, timestamptz) to authenticated;
+
 create or replace function public.next_document_serial(p_type public.service_request_type, p_year integer)
 returns integer
 language plpgsql
@@ -698,6 +821,70 @@ $$;
 
 grant execute on function public.next_document_serial(public.service_request_type, integer) to authenticated;
 
+create or replace function public.finalize_document_issuance(
+  p_request_id uuid,
+  p_serial integer,
+  p_year integer,
+  p_document_number text,
+  p_storage_path text,
+  p_snapshot jsonb,
+  p_issued_by text,
+  p_issued_at timestamptz
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_request public.service_requests%rowtype;
+  new_issuance_id uuid;
+begin
+  if not public.is_opal_admin() then raise exception 'not authorized'; end if;
+  if p_serial < 1 or p_year < 2000 or nullif(btrim(coalesce(p_document_number, '')), '') is null or nullif(btrim(coalesce(p_storage_path, '')), '') is null then
+    raise exception 'invalid issuance payload';
+  end if;
+
+  select * into current_request from public.service_requests where id = p_request_id for update;
+  if not found then raise exception 'service request not found'; end if;
+  if current_request.status <> 'approved' then raise exception 'service request not approved'; end if;
+  if exists (select 1 from public.document_issuances where request_id = p_request_id) then raise exception 'service request already issued'; end if;
+
+  insert into public.document_issuances (
+    request_id,
+    serial_number,
+    issue_year,
+    document_number,
+    storage_path,
+    snapshot,
+    issued_by,
+    issued_at
+  )
+  values (
+    p_request_id,
+    p_serial,
+    p_year,
+    p_document_number,
+    p_storage_path,
+    p_snapshot,
+    p_issued_by,
+    p_issued_at
+  )
+  returning id into new_issuance_id;
+
+  update public.service_requests
+  set
+    status = 'issued',
+    reviewed_by = p_issued_by,
+    reviewed_at = p_issued_at
+  where id = p_request_id;
+
+  return new_issuance_id;
+end;
+$$;
+
+grant execute on function public.finalize_document_issuance(uuid, integer, integer, text, text, jsonb, text, timestamptz) to authenticated;
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('resident-evidence', 'resident-evidence', false, 10485760, array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']),
@@ -717,7 +904,6 @@ create policy "Admins manage private document exports" on storage.objects for al
 using (bucket_id = 'document-exports' and public.is_opal_admin())
 with check (bucket_id = 'document-exports' and public.is_opal_admin());
 drop policy if exists "Public reads OPAL assets" on storage.objects;
-create policy "Public reads OPAL assets" on storage.objects for select using (bucket_id = 'opal-assets');
 drop policy if exists "Admins manage OPAL assets" on storage.objects;
 create policy "Admins manage OPAL assets" on storage.objects for all
 using (bucket_id = 'opal-assets' and public.is_opal_admin())

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sendSafeReceipt } from "@/lib/email";
-import { requestBodyExceeds } from "@/lib/request";
+import { readJsonBody, requestBodyExceeds, requestHasJsonContentType } from "@/lib/request";
+import { isResidentEvidencePath } from "@/lib/storage-paths";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -19,11 +20,24 @@ const bodySchema = z.object({ submissionId: z.string().uuid(), files: z.array(ev
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured()) return NextResponse.json({ error: "Layanan pendataan belum dikonfigurasi." }, { status: 503 });
   if (requestBodyExceeds(request, 128 * 1024)) return NextResponse.json({ error: "Permintaan terlalu besar." }, { status: 413 });
-  const parsed = bodySchema.safeParse(await request.json());
+  if (!requestHasJsonContentType(request)) return NextResponse.json({ error: "Gunakan application/json." }, { status: 415 });
+  const body = await readJsonBody(request);
+  if (body === null) return NextResponse.json({ error: "Body JSON tidak valid." }, { status: 400 });
+  const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Data unggahan tidak valid." }, { status: 422 });
   const { submissionId, files } = parsed.data;
   const folder = `submissions/${submissionId}/`;
-  if (files.some((file) => !file.path.startsWith(folder)) || new Set(files.map((file) => file.path)).size !== files.length) {
+  const keys = files.map((file) => file.key);
+  const occupantCount = keys.filter((key) => key.startsWith("occupantKtp-")).length;
+  if (
+    files.some((file) => !isResidentEvidencePath(file.path, submissionId))
+    || new Set(files.map((file) => file.path)).size !== files.length
+    || new Set(keys).size !== keys.length
+    || !keys.includes("responsibleKtp")
+    || !keys.includes("familyCard")
+    || occupantCount < 1
+    || occupantCount > 10
+  ) {
     return NextResponse.json({ error: "Berkas unggahan tidak cocok dengan permohonan." }, { status: 422 });
   }
 

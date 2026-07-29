@@ -11,6 +11,7 @@ export const metadata = { title: "Kas OPAL", description: "Ringkasan Kas OPAL da
 
 export default async function KasPage() {
   const [summary, portal] = await Promise.all([getPublicCashSummary(), getPortalData()]);
+  const summaryReady = summary.sourceStatus === "ready";
 
   return (
     <div>
@@ -27,8 +28,12 @@ export default async function KasPage() {
               <Wallet size={18} weight="fill" className="text-brand" aria-hidden="true" />
               Saldo ringkasan
             </div>
-            <p className="mt-7 text-4xl font-bold tracking-[-0.07em] text-ink sm:text-5xl">{formatRupiah(summary.balance)}</p>
-            {summary.lastUpdated ? <p className="mt-4 text-sm text-ink-muted">Per {formatDate(summary.lastUpdated)}</p> : <p className="mt-4 text-sm text-ink-muted">Akan diperbarui setelah pembukuan publik diterbitkan.</p>}
+            <p className="mt-7 text-4xl font-bold tracking-[-0.07em] text-ink sm:text-5xl">{summaryReady ? formatRupiah(summary.balance) : "Belum tersedia"}</p>
+            {summaryReady
+              ? summary.lastUpdated
+                ? <p className="mt-4 text-sm text-ink-muted">Per {formatDate(summary.lastUpdated)}</p>
+                : <p className="mt-4 text-sm text-ink-muted">Akan diperbarui setelah pembukuan publik diterbitkan.</p>
+              : <p className="mt-4 text-sm text-ink-muted">Ringkasan Kas publik belum dapat dimuat dari sumber utama.</p>}
           </div>
           <dl className="border-t border-line bg-surface-subtle lg:border-t-0 lg:border-l">
             <div className="flex items-center justify-between gap-5 border-b border-line px-5 py-6 sm:px-8">
@@ -36,14 +41,14 @@ export default async function KasPage() {
                 <ArrowDownLeft size={18} weight="bold" className="text-brand" aria-hidden="true" />
                 Pemasukan publik
               </dt>
-              <dd className="text-xl font-bold tracking-[-0.05em] text-ink">{formatRupiah(summary.income)}</dd>
+              <dd className="text-xl font-bold tracking-[-0.05em] text-ink">{summaryReady ? formatRupiah(summary.income) : "Belum tersedia"}</dd>
             </div>
             <div className="flex items-center justify-between gap-5 px-5 py-6 sm:px-8">
               <dt className="flex items-center gap-2 text-sm font-bold text-ink-muted">
                 <ArrowUpRight size={18} weight="bold" className="text-brand" aria-hidden="true" />
                 Pengeluaran publik
               </dt>
-              <dd className="text-xl font-bold tracking-[-0.05em] text-ink">{formatRupiah(summary.expense)}</dd>
+              <dd className="text-xl font-bold tracking-[-0.05em] text-ink">{summaryReady ? formatRupiah(summary.expense) : "Belum tersedia"}</dd>
             </div>
           </dl>
         </div>
@@ -57,7 +62,7 @@ export default async function KasPage() {
               <Bank size={23} className="mt-0.5 shrink-0 text-brand" weight="fill" aria-hidden="true" />
               <div>
                 <h2 className="font-bold tracking-[-0.03em] text-ink">Pembayaran Kas OPAL</h2>
-                <p className="mt-1.5 text-sm leading-6 text-ink-muted">BCA 1011815125 a.n. Neria Kezia Jayanti. Konfirmasikan metode pembayaran yang berlaku kepada pengurus.</p>
+                <p className="mt-1.5 text-sm leading-6 text-ink-muted">{portal.fees.find((fee) => fee.label === "Iuran Kas OPAL")?.destination || "Tujuan pembayaran belum dipublikasikan. Konfirmasikan metode pembayaran yang berlaku kepada pengurus."}</p>
               </div>
             </div>
           </div>
