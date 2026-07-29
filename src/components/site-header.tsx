@@ -1,13 +1,15 @@
 "use client";
 
-import { CaretRight, List, User, X } from "@phosphor-icons/react";
+import { CaretRight, CheckCircle, List, User, X } from "@phosphor-icons/react";
+import { createBrowserClient } from "@supabase/ssr";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSyncExternalStore, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 
 const navigation = [
   { href: "/", label: "Beranda" },
@@ -41,10 +43,49 @@ const getHomeHeroPastSnapshot = () => {
 
 const getHomeHeroPastServerSnapshot = () => false;
 
+function useAdminSession() {
+  const [isSignedIn, setIsSignedIn] = useState(false);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !supabaseUrl || !supabasePublishableKey) return;
+
+    const supabase = createBrowserClient(supabaseUrl, supabasePublishableKey);
+    let active = true;
+    const syncAdmin = async (session: { user?: { email?: string | null } } | null) => {
+      const email = session?.user?.email?.toLowerCase();
+      if (!email) {
+        if (active) setIsSignedIn(false);
+        return;
+      }
+      const { data: admin } = await supabase.from("admin_users").select("email").eq("email", email).maybeSingle();
+      if (active) setIsSignedIn(Boolean(admin));
+    };
+    void supabase.auth.getSession().then(({ data: { session } }) => syncAdmin(session)).catch(() => {
+      if (active) setIsSignedIn(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        if (active) setIsSignedIn(false);
+        return;
+      }
+      void syncAdmin(session);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  return isSignedIn;
+}
+
 export function SiteHeader() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
+  const isAdminSignedIn = useAdminSession();
   const onHome = pathname === "/";
   const darkMode = useSyncExternalStore(subscribeToTheme, getDarkThemeSnapshot, getDarkThemeServerSnapshot);
   const homeHeroPast = useSyncExternalStore(
@@ -109,7 +150,7 @@ export function SiteHeader() {
             className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3.5 text-[0.76rem] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 ${headerDark ? "border-white/20 bg-black/10 text-ink-inverse hover:border-white/40 hover:bg-white/8 focus-visible:ring-brand-highlight focus-visible:ring-offset-2 focus-visible:ring-offset-action" : "border-line bg-surface-raised/72 text-ink hover:border-brand/60 hover:text-brand focus-visible:ring-brand focus-visible:ring-offset-4 focus-visible:ring-offset-surface"}`}
           >
             <User size={14} weight="bold" aria-hidden="true" />
-            Admin RT
+            {isAdminSignedIn ? <><CheckCircle size={15} weight="fill" aria-hidden="true" /> Admin aktif</> : "Admin RT"}
           </Link>
           <ThemeToggle inverse={headerDark} />
         </div>
@@ -165,7 +206,7 @@ export function SiteHeader() {
                 onClick={() => setIsOpen(false)}
                 className={`mt-4 inline-flex min-h-12 items-center justify-center rounded-xl px-5 text-center text-[1rem] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 ${headerDark ? "bg-ink-inverse text-action hover:bg-brand-highlight focus-visible:ring-brand-highlight focus-visible:ring-offset-2 focus-visible:ring-offset-action" : "bg-action text-on-action hover:bg-brand hover:text-on-brand focus-visible:ring-brand focus-visible:ring-offset-4 focus-visible:ring-offset-surface"}`}
               >
-                Masuk ke admin RT
+                {isAdminSignedIn ? "Buka ruang kerja RT" : "Masuk ke admin RT"}
               </Link>
             </div>
           </motion.nav>
