@@ -221,6 +221,14 @@ button:active {
   outline-offset: 4px;
 }
 
+/* The search control has its own visible focus treatment on the shell.
+   Keep the text field itself borderless so browser focus never draws a
+   distracting green rectangle inside the control. */
+.home-portal-search-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .skip-link {
   position: fixed;
   top: 0.75rem;

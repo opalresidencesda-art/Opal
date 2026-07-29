@@ -50,7 +50,7 @@ export function HomePortalSearch({ index }: HomePortalSearchProps) {
         }}
       >
         <label htmlFor="home-portal-search" className="sr-only">Cari informasi warga</label>
-        <div className="flex min-h-16 items-center gap-3 rounded-2xl border-2 border-white/65 bg-ink-inverse px-4 shadow-[0_18px_50px_rgba(2,20,16,0.28)] transition focus-within:border-brand-highlight focus-within:ring-4 focus-within:ring-brand-highlight/30 sm:min-h-[4.75rem] sm:px-5">
+        <div className="flex min-h-16 items-center gap-3 rounded-2xl border border-white/70 bg-ink-inverse px-4 shadow-[0_18px_50px_rgba(2,20,16,0.28)] transition focus-within:border-white focus-within:ring-4 focus-within:ring-white/20 sm:min-h-[4.75rem] sm:px-5">
           <input
             id="home-portal-search"
             type="text"
@@ -85,7 +85,7 @@ export function HomePortalSearch({ index }: HomePortalSearchProps) {
             aria-activedescendant={open && activeResult ? `${listId}-${activeResult.id}` : undefined}
             role="combobox"
             placeholder="Contoh: surat domisili, iuran, parkir"
-            className="min-w-0 flex-1 bg-transparent text-[0.95rem] font-semibold text-action outline-none placeholder:text-ink-muted sm:text-[1.05rem]"
+            className="home-portal-search-input min-w-0 flex-1 bg-transparent text-[0.95rem] font-semibold text-action outline-none placeholder:text-ink-muted focus:outline-none sm:text-[1.05rem]"
           />
           {hasQuery ? (
             <button
