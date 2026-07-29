@@ -1,4 +1,5 @@
 import { ArrowUpRight, Phone } from "@phosphor-icons/react/dist/ssr";
+import Image from "next/image";
 import { ServicePageHero } from "@/components/service-page-hero";
 import { getPublishedStaff } from "@/lib/portal-services";
 
@@ -18,21 +19,26 @@ export default async function PetugasPage() {
           <p className="mt-3 text-sm leading-6 text-ink-muted">Gunakan WhatsApp untuk keperluan operasional. Mohon sertakan blok dan nomor rumah saat menghubungi.</p>
         </aside>
 
-          <div className="border-t border-line">
+        <div className="border-t border-line">
           {staff.length ? (
             staff.map((person) => (
-              <article key={person.id ?? person.name} className="public-row-link grid gap-5 border-b border-line py-7 pl-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:pl-5">
-                <div>
-                  <p className="text-sm font-bold text-brand">{person.role}</p>
-                  <h3 className="mt-1 text-2xl font-bold tracking-[-0.05em] text-ink">{person.name}</h3>
+              <article key={person.id ?? person.name} className="public-row-link border-b border-line py-7 pl-4 sm:pl-5">
+                <div className="flex flex-col gap-5 sm:grid sm:grid-cols-[5rem_minmax(0,1fr)_auto] sm:items-center sm:gap-5">
+                  <div className="relative size-20 overflow-hidden rounded-full border border-line bg-brand-soft sm:size-20">
+                    {person.id && person.photoPath ? <Image src={`/api/staff-photo/${person.id}`} alt={`Foto ${person.name}`} fill sizes="80px" className="object-cover" /> : <span className="grid size-full place-items-center text-2xl font-extrabold text-brand-deep" aria-hidden="true">{person.name.slice(0, 1).toUpperCase()}</span>}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-brand">{person.role}</p>
+                    <h3 className="mt-1 text-2xl font-bold tracking-[-0.05em] text-ink">{person.name}</h3>
+                  </div>
+                  {person.whatsapp ? (
+                    <a href={`https://wa.me/${person.whatsapp}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-on-brand hover:bg-brand-deep sm:w-auto">
+                      <Phone size={17} weight="fill" aria-hidden="true" />
+                      Hubungi WhatsApp
+                      <ArrowUpRight size={15} weight="bold" aria-hidden="true" />
+                    </a>
+                  ) : <span className="text-sm font-semibold text-ink-faint">Kontak belum tersedia</span>}
                 </div>
-                {person.whatsapp ? (
-                  <a href={`https://wa.me/${person.whatsapp}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-on-brand hover:bg-brand-deep sm:w-auto">
-                    <Phone size={17} weight="fill" aria-hidden="true" />
-                    Hubungi WhatsApp
-                    <ArrowUpRight size={15} weight="bold" aria-hidden="true" />
-                  </a>
-                ) : <span className="text-sm font-semibold text-ink-faint">Kontak belum tersedia</span>}
               </article>
             ))
           ) : <p className="border-b border-line py-8 text-sm leading-6 text-ink-muted">Kontak petugas belum diterbitkan. RT akan memperbarui halaman ini saat informasi kerja tersedia.</p>}

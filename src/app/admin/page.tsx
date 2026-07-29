@@ -24,7 +24,7 @@ type EvidenceRow = { id: string; evidence_kind: string; original_name: string };
 type ResidentSubmissionRow = { id: string; status: string; contact_email: string; payload: Record<string, unknown>; created_at: string; admin_note: string | null; properties: { unit_code: string } | { unit_code: string }[] | null; resident_evidence: EvidenceRow[] };
 type ServiceRequestRow = { id: string; request_type: "move" | "domicile" | "single"; status: string; contact_name: string; contact_email: string; contact_whatsapp: string; payload: Record<string, unknown>; created_at: string; admin_note: string | null; properties: { unit_code: string } | { unit_code: string }[] | null };
 type PropertyRow = { id: string; unit_code: string; occupancy_status: string | null; access_token_created_at: string | null; access_token_revoked_at: string | null; resident_profiles: { responsible_name: string; updated_at: string } | { responsible_name: string; updated_at: string }[] | null; resident_submissions: Array<{ status: string; created_at: string }>; property_contributions: Array<{ status: "paid" | "pending" | "waived"; period: string | null }> };
-type StaffRow = { id: string; name: string; role: string; whatsapp: string | null; published: boolean; sort_order: number };
+type StaffRow = { id: string; name: string; role: string; whatsapp: string | null; photo_path: string | null; published: boolean; sort_order: number };
 type SpecRow = { id: string; category: "Keramik" | "Cat" | "Kontak"; label: string; value: string; published: boolean; sort_order: number };
 type PlanRow = { id: string; title: string; alt_text: string; storage_path: string; published: boolean; sort_order: number };
 type CashTransactionRow = { id: string; transaction_date: string; category: string; description: string; direction: "income" | "expense"; amount_rupiah: number; is_public: boolean };
@@ -146,7 +146,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     supabase.from("service_requests").select("id", { count: "exact", head: true }).eq("status", "approved"),
     supabase.from("properties").select("id", { count: "exact", head: true }).not("access_token_created_at", "is", "null").is("access_token_revoked_at", null),
     supabase.from("property_contributions").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    supabase.from("staff_profiles").select("id,name,role,whatsapp,published,sort_order").order("sort_order"),
+    supabase.from("staff_profiles").select("id,name,role,whatsapp,photo_path,published,sort_order").order("sort_order"),
     supabase.from("home_specs").select("id,category,label,value,published,sort_order").order("sort_order"),
     supabase.from("floor_plan_assets").select("id,title,alt_text,storage_path,published,sort_order").order("sort_order"),
   ]);
@@ -390,7 +390,23 @@ function AdminUsersPanel({ users, currentEmail }: { users: AdminUserRow[]; curre
 }
 
 function StaffForm({ staff }: { staff?: StaffRow }) {
-  return <form action={saveStaffProfile} className="rounded-[18px] border border-line bg-surface-raised p-5"><input type="hidden" name="id" value={staff?.id ?? ""} /><div className="grid gap-3 sm:grid-cols-2"><Field label="Nama"><input name="name" defaultValue={staff?.name} required className={inputClass} /></Field><Field label="Peran"><input name="role" defaultValue={staff?.role ?? "Petugas Pos & Taman"} required className={inputClass} /></Field><Field label="WhatsApp"><input name="whatsapp" defaultValue={staff?.whatsapp ?? ""} className={inputClass} /></Field><Field label="Urutan"><input name="sortOrder" type="number" min="1" defaultValue={staff?.sort_order ?? 99} required className={inputClass} /></Field></div><div className="mt-4 flex items-center justify-between gap-4"><Toggle name="published" label="Tampilkan" checked={staff?.published ?? true} /><button className="min-h-10 rounded-full bg-action px-4 text-sm font-bold text-on-action hover:bg-brand hover:text-on-brand">Simpan</button></div></form>;
+  return (
+    <form action={saveStaffProfile} encType="multipart/form-data" className="rounded-[18px] border border-line bg-surface-raised p-5">
+      <input type="hidden" name="id" value={staff?.id ?? ""} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Nama"><input name="name" defaultValue={staff?.name} required className={inputClass} /></Field>
+        <Field label="Peran"><input name="role" defaultValue={staff?.role ?? "Petugas Pos & Taman"} required className={inputClass} /></Field>
+        <Field label="WhatsApp"><input name="whatsapp" defaultValue={staff?.whatsapp ?? ""} className={inputClass} /></Field>
+        <Field label="Urutan"><input name="sortOrder" type="number" min="1" defaultValue={staff?.sort_order ?? 99} required className={inputClass} /></Field>
+      </div>
+      <Field label={staff?.photo_path ? "Ganti foto profil (opsional)" : "Foto profil (opsional)"}>
+        <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" className="mt-2 block min-h-11 w-full cursor-pointer rounded-xl border border-dashed border-line bg-surface px-3 py-2.5 text-sm text-ink-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand-soft file:px-3 file:py-2 file:font-extrabold file:text-brand-deep hover:border-brand" />
+        <span className="mt-1.5 block text-xs font-semibold leading-5 text-ink-faint">JPG, PNG, atau WEBP. Maksimal 5 MB. Foto akan terlihat warga di halaman petugas.</span>
+      </Field>
+      {staff?.photo_path ? <div className="flex flex-wrap items-center gap-4 rounded-xl border border-line bg-surface-subtle p-3"><Image src={`/api/staff-photo/${staff.id}`} alt={`Foto ${staff.name}`} width={64} height={64} unoptimized className="size-16 rounded-full object-cover" /><div className="min-w-0 flex-1"><p className="text-sm font-extrabold text-ink">Foto saat ini tersimpan</p><p className="mt-1 text-xs font-semibold leading-5 text-ink-muted">Unggah foto baru untuk menggantinya.</p></div><Toggle name="removePhoto" label="Hapus foto" checked={false} /></div> : null}
+      <div className="mt-4 flex items-center justify-between gap-4"><Toggle name="published" label="Tampilkan" checked={staff?.published ?? true} /><button className="min-h-10 rounded-full bg-action px-4 text-sm font-bold text-on-action hover:bg-brand hover:text-on-brand">Simpan</button></div>
+    </form>
+  );
 }
 
 function SpecForm({ spec }: { spec?: SpecRow }) {

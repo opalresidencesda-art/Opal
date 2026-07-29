@@ -552,9 +552,30 @@ export async function saveStaffProfile(formData: FormData) {
   const id = textValue(formData, "id", false);
   const sortOrder = Number(textValue(formData, "sortOrder"));
   if (!Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Urutan petugas tidak valid.");
-  const payload = { name: textValue(formData, "name"), role: textValue(formData, "role"), whatsapp: textValue(formData, "whatsapp", false) || null, published: boolValue(formData, "published"), sort_order: sortOrder };
+  const existingResult = id
+    ? await supabase.from("staff_profiles").select("photo_path").eq("id", id).maybeSingle()
+    : { data: null, error: null };
+  if (existingResult.error || (id && !existingResult.data)) throw new Error("Profil petugas yang akan diubah tidak ditemukan.");
+  const existingPhotoPath = typeof existingResult.data?.photo_path === "string" ? existingResult.data.photo_path : null;
+  const candidate = formData.get("photo");
+  let uploadedPhotoPath: string | null = null;
+  if (candidate && typeof candidate === "object" && "arrayBuffer" in candidate && "size" in candidate && "type" in candidate && candidate.size > 0) {
+    const photo = candidate as File;
+    if (photo.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(photo.type)) throw new Error("Foto harus berupa JPG, PNG, atau WEBP maksimal 5 MB.");
+    const extension = photo.type === "image/png" ? "png" : photo.type === "image/webp" ? "webp" : "jpg";
+    uploadedPhotoPath = `staff/${randomUUID()}.${extension}`;
+    const { error: uploadError } = await createSupabaseAdminClient().storage.from("opal-assets").upload(uploadedPhotoPath, Buffer.from(await photo.arrayBuffer()), { contentType: photo.type, upsert: false });
+    if (uploadError) throw new Error("Foto profil tidak dapat diunggah.");
+  }
+  const photoPath = uploadedPhotoPath ?? (boolValue(formData, "removePhoto") ? null : existingPhotoPath);
+  const payload = { name: textValue(formData, "name"), role: textValue(formData, "role"), whatsapp: textValue(formData, "whatsapp", false) || null, photo_path: photoPath, published: boolValue(formData, "published"), sort_order: sortOrder };
   const { error } = id ? await supabase.from("staff_profiles").update(payload).eq("id", id) : await supabase.from("staff_profiles").insert(payload);
-  if (error) throw new Error("Profil petugas tidak dapat disimpan.");
+  if (error) {
+    if (uploadedPhotoPath) await createSupabaseAdminClient().storage.from("opal-assets").remove([uploadedPhotoPath]);
+    throw new Error("Profil petugas tidak dapat disimpan.");
+  }
+  const oldPhotoPath = existingPhotoPath && existingPhotoPath !== photoPath && /^staff\/[0-9a-f-]{36}\.(jpg|png|webp)$/i.test(existingPhotoPath) ? existingPhotoPath : null;
+  if (oldPhotoPath) await createSupabaseAdminClient().storage.from("opal-assets").remove([oldPhotoPath]);
   revalidatePath("/petugas");
   success("Profil petugas telah disimpan.");
 }
