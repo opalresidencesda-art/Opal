@@ -4,6 +4,7 @@ import { ServicePageHero } from "@/components/service-page-hero";
 import { getPublishedStaff } from "@/lib/portal-services";
 
 export const metadata = { title: "Petugas Pos & Taman" };
+export const dynamic = "force-dynamic";
 
 export default async function PetugasPage() {
   const staff = await getPublishedStaff();
