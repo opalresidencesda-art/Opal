@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
-import { getAllCashTransactions } from "@/lib/cash";
+import { getAllCashTransactions, type CashCategoryTotals } from "@/lib/cash";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 
 export type CashSummary = {
@@ -9,7 +9,7 @@ export type CashSummary = {
   expense: number;
   balance: number;
   lastUpdated: string | null;
-  categories: Array<{ category: string; income: number; expense: number }>;
+  categories: CashCategoryTotals[];
 };
 
 export type StaffProfile = { id?: string; name: string; role: string; whatsapp: string | null; photoPath: string | null };

@@ -1,5 +1,6 @@
-import { ArrowDownLeft, ArrowUpRight, Bank, CalendarBlank, Wallet } from "@phosphor-icons/react/dist/ssr";
+import { ArrowDownLeft, ArrowUpRight, Bank, Wallet } from "@phosphor-icons/react/dist/ssr";
 import { FeeList } from "@/components/fee-list";
+import { PublicCashCategoryBrowser } from "@/components/public-cash-category-browser";
 import { ServicePageHero } from "@/components/service-page-hero";
 import { formatDate, formatRupiah } from "@/lib/format";
 import { getPortalData } from "@/lib/data";
@@ -10,7 +11,6 @@ export const metadata = { title: "Kas OPAL", description: "Ringkasan Kas OPAL da
 
 export default async function KasPage() {
   const [summary, portal] = await Promise.all([getPublicCashSummary(), getPortalData()]);
-  const hasData = summary.income || summary.expense;
 
   return (
     <div>
@@ -63,25 +63,7 @@ export default async function KasPage() {
           </div>
         </aside>
 
-        <section aria-labelledby="cash-categories-heading" className="border-t border-line pt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="cash-categories-heading" className="text-2xl font-bold tracking-[-0.055em] text-ink">Kategori pembukuan</h2>
-            {summary.lastUpdated ? <span className="flex items-center gap-1.5 text-xs font-bold text-ink-faint"><CalendarBlank size={15} aria-hidden="true" /> Diperbarui</span> : null}
-          </div>
-          {hasData ? (
-            <div className="mt-5 border-t border-line">
-              {summary.categories.map((item) => (
-                <article key={item.category} className="grid gap-3 border-b border-line py-5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-8">
-                  <h3 className="font-bold text-ink">{item.category}</h3>
-                  <p className="text-sm text-ink-muted">Masuk <strong className="font-bold text-ink">{formatRupiah(item.income)}</strong></p>
-                  <p className="text-sm text-ink-muted">Keluar <strong className="font-bold text-ink">{formatRupiah(item.expense)}</strong></p>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-5 border-t border-line py-7 text-sm leading-6 text-ink-muted">Pembukuan publik belum diterbitkan. RT akan menampilkan ringkasan setelah data Kas lama selesai direkonsiliasi.</p>
-          )}
-        </section>
+        <PublicCashCategoryBrowser categories={summary.categories} lastUpdated={summary.lastUpdated} />
       </section>
     </div>
   );

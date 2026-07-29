@@ -12,6 +12,23 @@ export type CashTransactionData = {
   is_public: boolean;
 };
 
+export type CashCategoryTotals = {
+  category: string;
+  income: number;
+  expense: number;
+};
+
+export type CashCategoryDirection = "all" | "income" | "expense";
+
+export function filterPublicCashCategories(categories: CashCategoryTotals[], query: string, direction: CashCategoryDirection) {
+  const needle = query.trim().toLocaleLowerCase("id-ID");
+  return categories.filter((item) => {
+    const matchesQuery = !needle || item.category.toLocaleLowerCase("id-ID").includes(needle);
+    const matchesDirection = direction === "all" || item[direction] > 0;
+    return matchesQuery && matchesDirection;
+  });
+}
+
 export async function getAllCashTransactions(
   supabase: SupabaseClient,
   options: { publicOnly?: boolean } = {},
