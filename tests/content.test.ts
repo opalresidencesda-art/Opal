@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getNextAnnouncementIndex, sortGuideSections } from "../src/lib/content";
+import { announcementImageUrl, getNextAnnouncementIndex, sortGuideSections } from "../src/lib/content";
 import { sanitizeMarkdown } from "../src/lib/markdown";
 import { quickAccessCategories } from "../src/lib/quick-access";
 
@@ -27,6 +27,14 @@ describe("getNextAnnouncementIndex", () => {
     expect(getNextAnnouncementIndex(2, 3)).toBe(0);
     expect(getNextAnnouncementIndex(0, 3, -1)).toBe(2);
     expect(getNextAnnouncementIndex(4, 0)).toBe(0);
+  });
+});
+
+describe("announcementImageUrl", () => {
+  it("only exposes a same-origin image endpoint for persisted announcement media", () => {
+    expect(announcementImageUrl({ id: "announcement-id", imagePath: "announcements/example.jpg" })).toBe("/api/announcement-image/announcement-id");
+    expect(announcementImageUrl({ id: "announcement-id", imagePath: null })).toBeNull();
+    expect(announcementImageUrl({ imagePath: "announcements/example.jpg" })).toBeNull();
   });
 });
 

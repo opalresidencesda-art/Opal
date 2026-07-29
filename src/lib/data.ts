@@ -27,6 +27,8 @@ type DatabaseAnnouncement = {
   body: string;
   published_at: string;
   pinned: boolean;
+  image_path: string | null;
+  image_alt: string;
 };
 
 type DatabaseResource = {
@@ -72,6 +74,8 @@ function mapAnnouncement(item: DatabaseAnnouncement): Announcement {
     body: item.body,
     publishedAt: item.published_at,
     pinned: item.pinned,
+    imagePath: item.image_path,
+    imageAlt: item.image_alt,
   };
 }
 

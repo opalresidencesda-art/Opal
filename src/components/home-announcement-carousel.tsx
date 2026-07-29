@@ -2,8 +2,9 @@
 
 import { Bell, CaretLeft, CaretRight, Pause, Play } from "@phosphor-icons/react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import Image from "next/image";
 import { useEffect, useState } from "react";
-import { getNextAnnouncementIndex, type Announcement } from "@/lib/content";
+import { announcementImageUrl, getNextAnnouncementIndex, type Announcement } from "@/lib/content";
 import { formatDate } from "@/lib/format";
 
 const AUTO_ADVANCE_MS = 5_000;
@@ -74,15 +75,23 @@ export function HomeAnnouncementCarousel({ announcements, id = "pengumuman" }: {
             animate={{ opacity: 1, x: 0 }}
             exit={reduceMotion ? undefined : { opacity: 0, x: -18 }}
             transition={{ duration: reduceMotion ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className={announcement.imagePath ? "grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(12rem,0.52fr)] md:items-center" : undefined}
             aria-live={autoPlaying ? "off" : "polite"}
             aria-atomic="true"
           >
-            <h2 className="mt-3 max-w-3xl text-[1.28rem] font-extrabold leading-[1.12] tracking-[-0.04em] text-[#dce7e4] sm:text-[1.55rem]">
-              {announcement.title}
-            </h2>
-            <p className="mt-3 max-w-3xl text-[0.82rem] leading-6 text-[#dce7e4]/76">
-              {announcement.body}
-            </p>
+            <div className="min-w-0">
+              <h2 className="mt-3 max-w-3xl text-[1.28rem] font-extrabold leading-[1.12] tracking-[-0.04em] text-[#dce7e4] sm:text-[1.55rem]">
+                {announcement.title}
+              </h2>
+              <p className="mt-3 max-w-3xl text-[0.82rem] leading-6 text-[#dce7e4]/76">
+                {announcement.body}
+              </p>
+            </div>
+            {announcementImageUrl(announcement) ? (
+              <figure className="relative aspect-[16/10] min-h-36 overflow-hidden rounded-[1.15rem] border border-white/12 bg-[#1a302d] md:order-2 md:aspect-[4/3] md:min-h-0">
+                <Image src={announcementImageUrl(announcement) ?? ""} alt={announcement.imageAlt || announcement.title} fill sizes="(min-width: 768px) 30vw, 100vw" unoptimized loading="lazy" className="object-cover" />
+              </figure>
+            ) : null}
           </motion.div>
         </AnimatePresence>
       </div>

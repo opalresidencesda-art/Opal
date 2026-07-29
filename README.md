@@ -10,6 +10,7 @@ Portal operasional OPAL Residence: panduan native, pendataan warga dengan bukti 
 - `/kas`: ringkasan publik dan informasi rekening BCA Kas OPAL; riwayat per rumah hanya melalui `/rumah/[token]` yang dibuat RT.
 - `/petugas`, `/spesifikasi-rumah`, `/denah`: direktori kerja, spesifikasi, dan empat lembar denah asli yang sudah dipindahkan sebagai aset lokal.
 - `/admin`: antrean pendataan/surat, penerbitan, pengaturan nomor surat, Kas, token rumah, petugas, spesifikasi, denah, panduan, dan pengumuman.
+- Pengumuman warga mendukung gambar informasi JPG/PNG/WEBP maksimal 5 MB. Gambar disimpan privat di Storage dan hanya disajikan melalui endpoint same-origin untuk pengumuman yang boleh dilihat.
 - `/admin/peta-rumah`: OPAL Atlas, peta satelit MapLibre privat dengan pencarian nomor rumah, inspector keluarga, dan kalibrasi titik rumah satu per satu.
 
 ## Menjalankan lokal
@@ -27,6 +28,7 @@ Buka `http://localhost:3000`. Tanpa konfigurasi Supabase, halaman publik tetap d
 
 1. Salin `.env.example` ke `.env.local`, lalu isi URL, publishable key, dan service-role key.
 2. Di Supabase SQL Editor, jalankan [schema.sql](supabase/schema.sql), kemudian [seed.sql](supabase/seed.sql).
+   Jika database sudah pernah dibuat, jalankan ulang bagian schema agar kolom `announcements.image_path` dan `announcements.image_alt` ditambahkan sebelum mengunggah gambar pengumuman.
 3. Buat akun RT di **Supabase Dashboard → Authentication → Users → Add user**, dengan email dan kata sandi yang akan dipakai masuk. Lalu masukkan email yang sama pada tabel admin:
 
    ```sql

@@ -111,16 +111,47 @@ export async function saveFeeSchedule(formData: FormData) {
 export async function saveAnnouncement(formData: FormData) {
   const { supabase } = await requireAdmin();
   const id = textValue(formData, "id", false);
+  const title = textValue(formData, "title");
+  const imageAlt = textValue(formData, "imageAlt", false).slice(0, 200);
+  const removeImage = boolValue(formData, "removeImage");
+  const existingResult = id
+    ? await supabase.from("announcements").select("image_path,image_alt").eq("id", id).maybeSingle()
+    : { data: null, error: null };
+  if (existingResult.error || (id && !existingResult.data)) throw new Error("Pengumuman yang akan diubah tidak ditemukan.");
+
+  const existingImagePath = typeof existingResult.data?.image_path === "string" ? existingResult.data.image_path : null;
+  const existingImageAlt = typeof existingResult.data?.image_alt === "string" ? existingResult.data.image_alt : "";
+  const candidate = formData.get("image");
+  let uploadedImagePath: string | null = null;
+  if (candidate && typeof candidate === "object" && "size" in candidate && "type" in candidate && Number(candidate.size) > 0) {
+    const image = candidate as File;
+    if (image.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(image.type)) {
+      throw new Error("Gambar harus berupa JPG, PNG, atau WEBP maksimal 5 MB.");
+    }
+    const extension = image.type === "image/png" ? "png" : image.type === "image/webp" ? "webp" : "jpg";
+    uploadedImagePath = `announcements/${randomUUID()}.${extension}`;
+    const { error: uploadError } = await createSupabaseAdminClient().storage.from("opal-assets").upload(uploadedImagePath, Buffer.from(await image.arrayBuffer()), { contentType: image.type, upsert: false });
+    if (uploadError) throw new Error("Gambar pengumuman tidak dapat diunggah.");
+  }
+
+  const imagePath = uploadedImagePath ?? (removeImage ? null : existingImagePath);
   const payload = {
-    title: textValue(formData, "title"),
+    title,
     body: textValue(formData, "body"),
     published_at: textValue(formData, "publishedAt"),
     pinned: boolValue(formData, "pinned"),
     published: boolValue(formData, "published"),
+    image_path: imagePath,
+    image_alt: imagePath ? imageAlt || existingImageAlt || title : "",
   };
   const query = id ? supabase.from("announcements").update(payload).eq("id", id) : supabase.from("announcements").insert(payload);
   const { error } = await query;
-  if (error) throw new Error("Pengumuman tidak dapat disimpan.");
+  if (error) {
+    if (uploadedImagePath) await createSupabaseAdminClient().storage.from("opal-assets").remove([uploadedImagePath]);
+    throw new Error("Pengumuman tidak dapat disimpan. Pastikan schema image pengumuman sudah diterapkan.");
+  }
+  const oldImagePath = existingImagePath && existingImagePath !== imagePath && /^announcements\/[0-9a-f-]{36}\.(jpg|png|webp)$/i.test(existingImagePath) ? existingImagePath : null;
+  if (oldImagePath) await createSupabaseAdminClient().storage.from("opal-assets").remove([oldImagePath]);
   success("Pengumuman telah disimpan.");
 }
 

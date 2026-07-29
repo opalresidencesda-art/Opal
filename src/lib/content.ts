@@ -15,7 +15,13 @@ export type Announcement = {
   body: string;
   publishedAt: string;
   pinned: boolean;
+  imagePath?: string | null;
+  imageAlt?: string | null;
 };
+
+export function announcementImageUrl(announcement: Pick<Announcement, "id" | "imagePath">) {
+  return announcement.id && announcement.imagePath ? `/api/announcement-image/${announcement.id}` : null;
+}
 
 export type Resource = {
   id?: string;

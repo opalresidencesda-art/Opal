@@ -45,9 +45,17 @@ create table if not exists public.announcements (
   published_at date not null default current_date,
   pinned boolean not null default false,
   published boolean not null default true,
+  image_path text,
+  image_alt text not null default '' check (char_length(image_alt) <= 200),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Backfill-safe additions for databases created before announcement images existed.
+alter table public.announcements add column if not exists image_path text;
+alter table public.announcements add column if not exists image_alt text not null default '';
+alter table public.announcements drop constraint if exists announcements_image_alt_check;
+alter table public.announcements add constraint announcements_image_alt_check check (char_length(image_alt) <= 200);
 
 create table if not exists public.resources (
   id uuid primary key default gen_random_uuid(),
