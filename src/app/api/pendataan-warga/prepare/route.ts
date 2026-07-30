@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { readJsonBody, requestBodyExceeds, requestHasJsonContentType } from "@/lib/request";
+import { consumeRequestRateLimit, rateLimitHeaders, readJsonBody, requestBodyExceeds, requestHasSameOrigin, requestHasJsonContentType } from "@/lib/request";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/lib/supabase/admin";
 import { residentSubmissionSchema, unitCode } from "@/lib/validation";
 
@@ -26,6 +26,9 @@ export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured()) return NextResponse.json({ error: "Layanan pendataan belum dikonfigurasi." }, { status: 503 });
   if (requestBodyExceeds(request, 64 * 1024)) return NextResponse.json({ error: "Permintaan terlalu besar." }, { status: 413 });
   if (!requestHasJsonContentType(request)) return NextResponse.json({ error: "Gunakan application/json." }, { status: 415 });
+  if (!requestHasSameOrigin(request)) return NextResponse.json({ error: "Asal permintaan tidak diizinkan." }, { status: 403 });
+  const rateLimit = consumeRequestRateLimit(request, "resident-prepare", 5, 10 * 60_000);
+  if (!rateLimit.allowed) return NextResponse.json({ error: "Terlalu banyak persiapan pendataan. Coba lagi nanti." }, { status: 429, headers: rateLimitHeaders(rateLimit.retryAfter) });
   const body = await readJsonBody(request);
   if (body === null) return NextResponse.json({ error: "Body JSON tidak valid." }, { status: 400 });
   const parsed = bodySchema.safeParse(body);
@@ -71,5 +74,5 @@ export async function POST(request: Request) {
     return { key: file.key, path, token: data.token };
   }));
 
-  return NextResponse.json({ submissionId: submission.id, unitCode: code, uploads });
+  return NextResponse.json({ submissionId: submission.id, unitCode: code, uploads }, { headers: { "cache-control": "no-store" } });
 }

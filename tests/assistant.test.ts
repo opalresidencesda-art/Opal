@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFallbackReply, buildPublicAssistantDocuments, getCashDateRange, selectRelevantDocuments, summarizeCashTransactions } from "../src/lib/assistant";
+import { assistantRequestSchema, buildFallbackReply, buildPublicAssistantDocuments, getCashDateRange, selectRelevantDocuments, summarizeCashTransactions } from "../src/lib/assistant";
 
 const source = { label: "Tes", href: "/tes" };
 
@@ -21,6 +21,26 @@ describe("OPAL assistant knowledge helpers", () => {
       { title: "Panduan renovasi", text: "Jam kerja tukang dan izin developer", source: { label: "Renovasi", href: "/renovasi" } },
     ];
     expect(selectRelevantDocuments("jam kerja renovasi", documents)[0]?.title).toBe("Panduan renovasi");
+  });
+
+  it("answers from portal content instead of sending the resident away", () => {
+    const reply = buildFallbackReply("jam kerja tukang saat renovasi", [{
+      title: "Panduan renovasi",
+      text: "Jam kerja tukang adalah pukul 07.00 hingga 17.00 WIB.",
+      source: { label: "Portal OPAL", href: "/panduan-harmonis#renovasi" },
+    }], "public");
+    expect(reply).toContain("07.00 hingga 17.00 WIB");
+    expect(reply).not.toContain("http");
+  });
+
+  it("accepts a normal long answer in history without rejecting the next question", () => {
+    const result = assistantRequestSchema.safeParse({
+      messages: [
+        { role: "assistant", content: "Jawaban portal ".repeat(250) },
+        { role: "user", content: "Tolong jelaskan aturan renovasi dengan ringkas." },
+      ],
+    });
+    expect(result.success).toBe(true);
   });
 
   it("calculates cash totals in the requested month", () => {
@@ -46,4 +66,3 @@ describe("OPAL assistant knowledge helpers", () => {
     expect(getCashDateRange("kas 2026-05", now)).toMatchObject({ from: "2026-05-01", to: "2026-06-01" });
   });
 });
-

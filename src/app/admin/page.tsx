@@ -169,7 +169,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const plans = (plansResult.data ?? []) as PlanRow[];
   const params = await searchParams;
   const message = typeof params.message === "string" ? params.message : "";
-  const homeLink = typeof params.homeLink === "string" && /^https?:\/\//.test(params.homeLink) ? params.homeLink : "";
   const pendingSubmissions = submissions.filter((submission) => isPending(submission.status));
   const pendingRequests = requests.filter((request) => isPending(request.status));
   const pendingSubmissionCount = pendingSubmissionsCountResult.count ?? pendingSubmissions.length;
@@ -226,7 +225,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <div className="flex items-center gap-2"><AdminActivityNotifications activities={activities} /><form action={signOut}><button type="submit" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line px-4 text-sm font-bold text-ink transition hover:-translate-y-0.5 hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"><SignOut size={17} weight="bold" aria-hidden="true" /> Keluar</button></form></div>
       </div>
       {message ? <p className="mt-6 flex items-center gap-2 border-l-2 border-brand bg-brand-soft px-4 py-4 text-sm font-bold text-ink" role="status"><CheckCircle size={20} weight="fill" className="text-brand" aria-hidden="true" />{message}</p> : null}
-      {homeLink ? <p className="mt-4 break-all border-l-2 border-brand bg-surface-subtle px-4 py-4 text-sm leading-6 text-ink"><strong className="text-ink">Tautan privat baru:</strong> <a className="font-bold text-brand-deep hover:text-brand" href={homeLink}>{homeLink}</a></p> : null}
       {loadErrors.length ? <DataLoadWarning labels={loadErrors} /> : null}
       {!loadErrors.length && (!fees.length || !resources.length || !sections.length) ? <p className="mt-6 border-l-2 border-warm bg-warm px-4 py-4 text-sm leading-6 text-ink-muted">Konten awal belum ada di database. Jalankan <code className="rounded bg-surface px-1.5 py-0.5 text-ink">supabase/schema.sql</code> lalu <code className="rounded bg-surface px-1.5 py-0.5 text-ink">supabase/seed.sql</code> agar editor ini terisi.</p> : null}
       <AdminOverview pendingSubmissions={pendingSubmissionCount} pendingRequests={pendingRequestCount} pendingContributions={pendingContributionCount} issuableRequests={issuableRequestCount} activePropertyLinks={activePropertyLinkCount} documentsReady={documentsReady} cashBalance={cashBalance} cashIncome={cashTotals.income} cashExpense={cashTotals.expense} cashTransactionCount={cashTransactions.length} lastCashTransaction={lastCashTransaction} />

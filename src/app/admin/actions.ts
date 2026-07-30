@@ -16,9 +16,10 @@ import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { residentSubmissionSchema, unitCode } from "@/lib/validation";
 
-function textValue(formData: FormData, key: string, required = true) {
+function textValue(formData: FormData, key: string, required = true, max = 5_000) {
   const value = formData.get(key)?.toString().trim() ?? "";
   if (required && !value) throw new Error(`${key} wajib diisi.`);
+  if (value.length > max) throw new Error(`${key} terlalu panjang.`);
   return value;
 }
 
@@ -60,7 +61,7 @@ const mapProfileSchema = z.object({
 export async function signInAdmin(formData: FormData) {
   if (!isSupabaseConfigured() || !supabaseUrl || !supabasePublishableKey) redirect("/admin/login?reason=setup");
   const email = textValue(formData, "email").toLowerCase();
-  const password = textValue(formData, "password");
+  const password = textValue(formData, "password", true, 256);
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) redirect("/admin/login?reason=credentials");
@@ -168,10 +169,18 @@ export async function saveResource(formData: FormData) {
   if (!validCategories.includes(category)) throw new Error("Kategori layanan tidak valid.");
   const sortOrder = Number(textValue(formData, "sortOrder"));
   if (!Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Urutan layanan tidak valid.");
+  const href = textValue(formData, "href", true, 1_000);
+  let parsedHref: URL;
+  try {
+    parsedHref = new URL(href);
+  } catch {
+    throw new Error("Tautan layanan tidak valid.");
+  }
+  if (!['http:', 'https:'].includes(parsedHref.protocol)) throw new Error("Tautan layanan harus menggunakan HTTP atau HTTPS.");
   const payload = {
     title: textValue(formData, "title"),
     description: textValue(formData, "description"),
-    href: textValue(formData, "href"),
+    href: parsedHref.toString(),
     category,
     requires_google_login: boolValue(formData, "requiresGoogleLogin"),
     published: boolValue(formData, "published"),
@@ -328,17 +337,6 @@ export async function issueServiceRequest(formData: FormData) {
     throw new Error("Arsip penerbitan surat tidak dapat dibuat.");
   }
   success("PDF surat resmi telah diterbitkan dan diarsipkan privat.");
-}
-
-export async function rotatePropertyLink(formData: FormData) {
-  const { supabase } = await requireAdmin();
-  const id = textValue(formData, "id");
-  const token = createAccessToken();
-  const { error } = await supabase.from("properties").update({ access_token_hash: hashAccessToken(token), access_token_created_at: new Date().toISOString(), access_token_revoked_at: null }).eq("id", id);
-  if (error) throw new Error("Tautan rumah tidak dapat diperbarui.");
-  revalidatePath("/admin");
-  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
-  redirect(`/admin?message=${encodeURIComponent("Tautan privat baru dibuat. Salin dan kirimkan hanya kepada rumah terkait.")}&homeLink=${encodeURIComponent(`${base}/rumah/${token}`)}`);
 }
 
 export async function revokePropertyLink(formData: FormData) {

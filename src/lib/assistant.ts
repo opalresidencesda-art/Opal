@@ -3,13 +3,17 @@ import type { PortalData } from "@/lib/content";
 import { formatRupiah } from "@/lib/format";
 
 export const MAX_ASSISTANT_MESSAGES = 8;
-export const MAX_ASSISTANT_MESSAGE_LENGTH = 1_200;
+export const MAX_ASSISTANT_USER_MESSAGE_LENGTH = 2_000;
+export const MAX_ASSISTANT_RESPONSE_LENGTH = 4_000;
+export const MAX_ASSISTANT_MESSAGE_LENGTH = MAX_ASSISTANT_RESPONSE_LENGTH;
+
+const assistantMessageSchema = z.discriminatedUnion("role", [
+  z.object({ role: z.literal("user"), content: z.string().trim().min(1).max(MAX_ASSISTANT_USER_MESSAGE_LENGTH) }),
+  z.object({ role: z.literal("assistant"), content: z.string().trim().min(1).max(MAX_ASSISTANT_RESPONSE_LENGTH) }),
+]);
 
 export const assistantRequestSchema = z.object({
-  messages: z.array(z.object({
-    role: z.enum(["user", "assistant"]),
-    content: z.string().trim().min(1).max(MAX_ASSISTANT_MESSAGE_LENGTH),
-  })).min(1).max(MAX_ASSISTANT_MESSAGES),
+  messages: z.array(assistantMessageSchema).min(1).max(MAX_ASSISTANT_MESSAGES),
   path: z.string().max(160).optional(),
 });
 
@@ -55,12 +59,35 @@ const STOP_WORDS = new Set([
   "apa", "apakah", "bisa", "boleh", "dan", "dari", "di", "dengan", "ini", "itu", "ke", "untuk", "yang",
 ]);
 
+const QUERY_ALIASES: Record<string, string> = {
+  bayar: "iuran",
+  bayarnya: "iuran",
+  pembayaran: "iuran",
+  bulanan: "iuran",
+  kontribusi: "iuran",
+  bangun: "renovasi",
+  bangunan: "renovasi",
+  tukang: "renovasi",
+  material: "renovasi",
+  kendaraan: "parkir",
+  mobil: "parkir",
+  motor: "parkir",
+  buang: "sampah",
+  sampahnya: "sampah",
+  dokumen: "surat",
+  pengajuan: "surat",
+  terbit: "surat",
+  masuk: "transaksi",
+  keluar: "transaksi",
+};
+
 function tokenize(value: string) {
   return value
     .toLocaleLowerCase("id-ID")
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .split(/[^a-z0-9]+/)
+    .map((token) => QUERY_ALIASES[token] ?? token)
     .filter((token) => token.length > 1 && !STOP_WORDS.has(token));
 }
 
@@ -70,6 +97,18 @@ function textWithoutMarkdown(value: string) {
     .replace(/\[(.*?)\]\([^)]*\)/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function nativeResourcePath(title: string) {
+  const normalized = title.toLocaleLowerCase("id-ID");
+  if (normalized.includes("kas")) return "/kas";
+  if (normalized.includes("pindah")) return "/surat/pindah-rumah";
+  if (normalized.includes("domisili")) return "/surat/domisili";
+  if (normalized.includes("belum menikah")) return "/surat/belum-menikah";
+  if (normalized.includes("formulir") || normalized.includes("data warga")) return "/pendataan-warga";
+  if (normalized.includes("spesifikasi")) return "/spesifikasi-rumah";
+  if (normalized.includes("denah")) return "/denah";
+  return "/layanan";
 }
 
 function formatDateRangeLabel(range: CashDateRange) {
@@ -156,10 +195,11 @@ export function buildPublicAssistantDocuments(portal: PortalData, cash: PublicCa
   }
 
   for (const resource of portal.resources) {
+    const href = nativeResourcePath(resource.title);
     documents.push({
       title: resource.title,
-      text: `${resource.title}: ${resource.description}${resource.requiresGoogleLogin ? " Membutuhkan login Google." : ""}`,
-      source: { label: `Layanan · ${resource.title}`, href: resource.href },
+      text: `${resource.title}: ${resource.description}${resource.requiresGoogleLogin ? " Pengisian membutuhkan login Google." : ""} Layanan ini dapat dibuka dari halaman OPAL pada menu ${href}.`,
+      source: { label: `Portal OPAL · ${resource.title}`, href },
     });
   }
 
@@ -179,7 +219,7 @@ export function selectRelevantDocuments(question: string, documents: AssistantDo
   const queryTokens = tokenize(question);
   if (!queryTokens.length) return [];
 
-  return documents
+  const scored = documents
     .map((document, index) => {
       const titleTokens = tokenize(document.title);
       const documentTokens = new Set(tokenize(`${document.title} ${document.text}`));
@@ -188,9 +228,21 @@ export function selectRelevantDocuments(question: string, documents: AssistantDo
       return { document, score, index };
     })
     .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+  const topScore = scored[0]?.score ?? 0;
+  const minimumScore = topScore >= 3 ? Math.ceil(topScore * 0.5) : 1;
+  return scored
+    .filter((item) => item.score >= minimumScore)
     .slice(0, limit)
     .map((item) => item.document);
+}
+
+export function getAssistantSearchQuestion(messages: AssistantMessage[]) {
+  return messages
+    .filter((message) => message.role === "user")
+    .slice(-3)
+    .map((message) => message.content)
+    .join(" ");
 }
 
 export function summarizeCashTransactions(
@@ -236,10 +288,12 @@ export function buildFallbackReply(question: string, documents: AssistantDocumen
 
   const relevant = selectRelevantDocuments(question, documents);
   if (!relevant.length) {
-    return "Aku belum menemukan jawaban yang cocok dari informasi OPAL yang tersedia. Coba tanyakan iuran, Kas OPAL, aturan parkir, renovasi, sampah, stiker kendaraan, atau layanan surat.";
+    return "Aku belum menemukan jawaban yang cocok dari isi portal OPAL. Coba tanyakan iuran, Kas OPAL, aturan parkir, renovasi, sampah, stiker kendaraan, atau layanan surat.";
   }
 
-  const answer = relevant.slice(0, 3).map((document) => `${document.title}: ${textWithoutMarkdown(document.text).slice(0, 600)}`).join("\n\n");
-  return `Berdasarkan data OPAL:\n\n${answer}`;
+  const answer = relevant.slice(0, 2).map((document) => {
+    const text = textWithoutMarkdown(document.text);
+    return `${document.title}\n${text.slice(0, 1_400)}${text.length > 1_400 ? "…" : ""}`;
+  }).join("\n\n");
+  return answer;
 }
-

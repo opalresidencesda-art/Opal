@@ -22,10 +22,14 @@ function client() {
   return createClient(supabaseUrl, supabasePublishableKey, { auth: { persistSession: false } });
 }
 
-export async function getPublicCashSummary(): Promise<CashSummary> {
+export async function getPublicCashTransactions() {
   const supabase = client();
-  if (!supabase) return { sourceStatus: "unavailable", income: 0, expense: 0, balance: 0, lastUpdated: null, categories: [] };
-  const { data, error } = await getAllCashTransactions(supabase, { publicOnly: true });
+  if (!supabase) return { data: null, error: new Error("Supabase belum dikonfigurasi") };
+  return getAllCashTransactions(supabase, { publicOnly: true });
+}
+
+export async function getPublicCashSummary(): Promise<CashSummary> {
+  const { data, error } = await getPublicCashTransactions();
   if (error || !data) return { sourceStatus: "unavailable", income: 0, expense: 0, balance: 0, lastUpdated: null, categories: [] };
 
   const categoryMap = new Map<string, { income: number; expense: number }>();

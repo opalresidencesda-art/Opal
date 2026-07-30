@@ -2,9 +2,9 @@ import "server-only";
 
 import { getAdminContext } from "@/lib/admin";
 import { getPortalData } from "@/lib/data";
-import { buildPublicAssistantDocuments, isCashQuestion, isRestrictedQuestion, summarizeCashTransactions, type AssistantDocument, type AssistantMessage, type AssistantScope, type PublicCashSummaryForAssistant } from "@/lib/assistant";
+import { buildPublicAssistantDocuments, getAssistantSearchQuestion, isCashQuestion, isRestrictedQuestion, summarizeCashTransactions, type AssistantDocument, type AssistantMessage, type AssistantScope, type PublicCashSummaryForAssistant } from "@/lib/assistant";
 import { getAllCashTransactions } from "@/lib/cash";
-import { getPublicCashSummary } from "@/lib/portal-services";
+import { getPublicCashSummary, getPublicCashTransactions } from "@/lib/portal-services";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type AssistantKnowledge = {
@@ -43,19 +43,19 @@ function propertyDocument(row: {
   return { title: `Data rumah ${row.unit_code}`, text: `Unit: ${row.unit_code}. Status hunian: ${row.occupancy_status ?? "belum tersedia"}. ${profileText} ${contributionText} ${requestText}`, source: { label: `Panel admin · ${row.unit_code}`, href: "/admin" } };
 }
 
-async function loadAdminDocuments(question: string): Promise<{ documents: AssistantDocument[]; unavailable: boolean }> {
+async function loadAdminDocuments(question: string, searchQuestion = question): Promise<{ documents: AssistantDocument[]; unavailable: boolean }> {
   const supabase = await createSupabaseServerClient();
   const documents: AssistantDocument[] = [];
   let unavailable = false;
 
-  if (isCashQuestion(question)) {
+  if (isCashQuestion(searchQuestion)) {
     const { data, error } = await getAllCashTransactions(supabase);
     if (error || !data) unavailable = true;
     else documents.push(summarizeCashTransactions(data, question, { label: "Panel admin · Kas OPAL", href: "/admin/kas" }));
   }
 
-  if (isPropertyQuestion(question) && !isRestrictedQuestion(question)) {
-    const unitCode = extractUnitCode(question);
+  if (isPropertyQuestion(searchQuestion) && !isRestrictedQuestion(question)) {
+    const unitCode = extractUnitCode(searchQuestion);
     let query = supabase.from("properties").select("unit_code,occupancy_status,resident_profiles(responsible_name,responsible_address,whatsapp,head_of_household_name,head_of_household_occupation,occupants_count,contact_email),property_contributions(category,period,amount_rupiah,paid_at,status),service_requests(request_type,status,created_at,document_issuances(document_number,issued_at))").eq("active", true).limit(unitCode ? 1 : 100);
     if (unitCode) query = query.eq("unit_code", unitCode);
     const { data, error } = await query;
@@ -73,11 +73,19 @@ async function loadAdminDocuments(question: string): Promise<{ documents: Assist
 
 export async function loadAssistantKnowledge(messages: AssistantMessage[]): Promise<AssistantKnowledge> {
   const question = lastUserMessage(messages);
+  const searchQuestion = getAssistantSearchQuestion(messages) || question;
   const [portal, publicCash, adminContext] = await Promise.all([getPortalData(), getPublicCashSummary(), getAdminContext()]);
   const documents = buildPublicAssistantDocuments(portal, publicCash as PublicCashSummaryForAssistant);
-  if (adminContext.kind !== "admin") return { scope: "public", email: null, documents, adminDataUnavailable: false };
+  if (adminContext.kind !== "admin") {
+    if (isCashQuestion(searchQuestion)) {
+      const publicTransactions = await getPublicCashTransactions();
+      if (publicTransactions.error || !publicTransactions.data) return { scope: "public", email: null, documents, adminDataUnavailable: true };
+      documents.push(summarizeCashTransactions(publicTransactions.data, question, { label: "Kas OPAL publik", href: "/kas" }));
+    }
+    return { scope: "public", email: null, documents, adminDataUnavailable: false };
+  }
   if (isRestrictedQuestion(question)) return { scope: "admin", email: adminContext.email, documents, adminDataUnavailable: false };
-  const admin = await loadAdminDocuments(question);
+  const admin = await loadAdminDocuments(question, searchQuestion);
   return { scope: "admin", email: adminContext.email, documents: [...documents, ...admin.documents], adminDataUnavailable: admin.unavailable };
 }
 

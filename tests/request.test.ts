@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readJsonBody, requestBodyExceeds, requestHasJsonContentType } from "../src/lib/request";
+import { consumeRequestRateLimit, readJsonBody, requestBodyExceeds, requestHasJsonContentType, requestHasSameOrigin } from "../src/lib/request";
 
 describe("requestBodyExceeds", () => {
   it("rejects a declared body larger than the route budget", () => {
@@ -31,5 +31,23 @@ describe("readJsonBody", () => {
 
   it("returns null when the body is malformed", async () => {
     await expect(readJsonBody(new Request("http://opal.test", { body: "{", method: "POST", headers: { "content-type": "application/json" } }))).resolves.toBeNull();
+  });
+});
+
+describe("request origin and abuse controls", () => {
+  it("allows same-origin and rejects explicit cross-origin requests", () => {
+    expect(requestHasSameOrigin(new Request("https://opal.test/api/surat", { headers: { origin: "https://opal.test" } }))).toBe(true);
+    expect(requestHasSameOrigin(new Request("https://opal.test/api/surat", { headers: { origin: "https://evil.test" } }))).toBe(false);
+    expect(requestHasSameOrigin(new Request("https://opal.test/api/surat"))).toBe(true);
+  });
+
+  it("enforces a bounded per-route request bucket", () => {
+    const first = consumeRequestRateLimit(new Request("https://opal.test", { headers: { "x-forwarded-for": "198.51.100.22" } }), "test-bucket", 2, 60_000);
+    const second = consumeRequestRateLimit(new Request("https://opal.test", { headers: { "x-forwarded-for": "198.51.100.22" } }), "test-bucket", 2, 60_000);
+    const third = consumeRequestRateLimit(new Request("https://opal.test", { headers: { "x-forwarded-for": "198.51.100.22" } }), "test-bucket", 2, 60_000);
+    expect(first.allowed).toBe(true);
+    expect(second.allowed).toBe(true);
+    expect(third.allowed).toBe(false);
+    expect(third.retryAfter).toBeGreaterThan(0);
   });
 });

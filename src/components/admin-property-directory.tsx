@@ -1,8 +1,9 @@
 "use client";
 
 import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
-import { createProperty, revokePropertyLink, rotatePropertyLink } from "@/app/admin/actions";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { createProperty, createPropertyMapLink, revokePropertyLink } from "@/app/admin/actions";
 
 type Submission = { status: string; created_at: string };
 type Contribution = { status: "paid" | "pending" | "waived"; period: string | null };
@@ -96,9 +97,25 @@ export function AdminPropertyDirectory({ properties }: { properties: PropertyLin
 }
 
 function PropertyLinkRow({ property }: { property: PropertyLink }) {
+  const router = useRouter();
   const state = linkState(property);
   const data = dataState(property);
   const contribution = contributionState(property);
   const linkLabel = state === "active" ? "Tautan aktif" : state === "revoked" ? "Tautan dicabut" : "Belum ada tautan";
-  return <article className="border border-line bg-surface-raised p-5"><div className="flex items-start justify-between gap-3"><div><p className="font-extrabold text-ink">{property.unit_code}</p><p className="mt-1 text-sm text-ink-muted">{property.occupancy_status ? occupancyLabels[property.occupancy_status] : "Status hunian belum disahkan"}</p></div><Pill label={linkLabel} tone={state === "active" ? "good" : "muted"} /></div><div className="mt-4 flex flex-wrap gap-2"><Pill label={data.label} tone={data.tone} /><Pill label={contribution.label} tone={contribution.tone} /></div><p className="mt-3 text-sm leading-6 text-ink-muted">{data.detail}</p><div className="mt-4 flex flex-wrap gap-2"><form action={rotatePropertyLink}><input type="hidden" name="id" value={property.id} /><button className="min-h-10 rounded-full bg-action px-3.5 text-xs font-bold text-on-action hover:bg-brand hover:text-on-brand">{state === "active" ? "Putar tautan" : "Buat tautan"}</button></form>{state === "active" ? <form action={revokePropertyLink}><input type="hidden" name="id" value={property.id} /><button className="min-h-10 rounded-full border border-line px-3.5 text-xs font-bold text-ink hover:border-danger hover:text-danger">Cabut</button></form> : null}</div></article>;
+  const [isPending, startTransition] = useTransition();
+  const [message, setMessage] = useState("");
+  async function copyPrivateLink() {
+    setMessage("");
+    startTransition(async () => {
+      try {
+        const { url } = await createPropertyMapLink(property.id);
+        await navigator.clipboard.writeText(url);
+        setMessage("Tautan privat baru disalin. Tidak ditampilkan di URL admin.");
+        router.refresh();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Tautan privat belum dapat dibuat.");
+      }
+    });
+  }
+  return <article className="border border-line bg-surface-raised p-5"><div className="flex items-start justify-between gap-3"><div><p className="font-extrabold text-ink">{property.unit_code}</p><p className="mt-1 text-sm text-ink-muted">{property.occupancy_status ? occupancyLabels[property.occupancy_status] : "Status hunian belum disahkan"}</p></div><Pill label={linkLabel} tone={state === "active" ? "good" : "muted"} /></div><div className="mt-4 flex flex-wrap gap-2"><Pill label={data.label} tone={data.tone} /><Pill label={contribution.label} tone={contribution.tone} /></div><p className="mt-3 text-sm leading-6 text-ink-muted">{data.detail}</p><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => void copyPrivateLink()} disabled={isPending} className="min-h-10 rounded-full bg-action px-3.5 text-xs font-bold text-on-action hover:bg-brand hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60">{isPending ? "Menyiapkan..." : state === "active" ? "Putar & salin tautan" : "Buat & salin tautan"}</button>{state === "active" ? <form action={revokePropertyLink}><input type="hidden" name="id" value={property.id} /><button className="min-h-10 rounded-full border border-line px-3.5 text-xs font-bold text-ink hover:border-danger hover:text-danger">Cabut</button></form> : null}</div>{message ? <p className="mt-3 text-xs font-bold leading-5 text-brand-deep" role="status">{message}</p> : null}</article>;
 }

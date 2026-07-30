@@ -95,14 +95,15 @@ test("Beranda mempertahankan pengumuman dan tidak overflow di kedua tema", async
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test("Asisten OPAL dapat dibuka tanpa memulai percakapan palsu", async ({ page }) => {
+test("Asisten OPAL dapat dibuka dengan input aktif tanpa percakapan palsu", async ({ page }) => {
   await page.goto("/");
   const trigger = page.getByRole("button", { name: "Buka Asisten OPAL" });
   await expect(trigger).toBeVisible();
   await trigger.click();
   await expect(page.getByRole("dialog", { name: "Asisten OPAL" })).toBeVisible();
-  await expect(page.getByText("Asisten AI sedang disiapkan.")).toBeVisible();
-  await expect(page.getByLabel("Tulis pertanyaan untuk Asisten OPAL")).toBeDisabled();
+  await expect(page.getByText("Tanya informasi OPAL.")).toBeVisible();
+  await expect(page.getByLabel("Tulis pertanyaan untuk Asisten OPAL")).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Berapa iuran bulan ini?" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sembunyikan Asisten OPAL" })).toHaveAttribute("aria-expanded", "true");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Asisten OPAL" })).toHaveCount(0);
