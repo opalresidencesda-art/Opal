@@ -114,12 +114,6 @@ export const defaultResources: Resource[] = [
     requiresGoogleLogin: true,
   },
   {
-    title: "Petugas Pos dan Taman",
-    description: "Kenali petugas yang membantu operasional OPAL.",
-    href: "https://docs.google.com/document/d/1wmdqSlR7bnE3eKftS89f7sxj6yCgZEvZhZORbBemUAA/edit?usp=sharing",
-    category: "Fasilitas",
-  },
-  {
     title: "Spesifikasi Cat dan Keramik",
     description: "Acuan warna cat serta spesifikasi keramik rumah.",
     href: "https://docs.google.com/document/d/1EFFWZlKYz0-bq32JyLDAfPPHsdPNlKUeUw6Td3pc8xE/edit?usp=sharing",

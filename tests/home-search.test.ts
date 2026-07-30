@@ -31,6 +31,15 @@ describe("home search", () => {
     expect(index.filter((item) => item.title === "Kas OPAL")).toHaveLength(1);
   });
 
+  it("keeps Petugas search on the native directory instead of the retired document", () => {
+    expect(searchHomeContent(index, "petugas").filter((item) => normaliseHomeSearchText(item.title).includes("petugas"))).toEqual([
+      expect.objectContaining({
+        title: "Petugas Pos & Taman",
+        href: "/petugas",
+      }),
+    ]);
+  });
+
   it("returns no matches for an unrelated query", () => {
     expect(searchHomeContent(index, "pajak kendaraan")).toEqual([]);
   });

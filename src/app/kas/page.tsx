@@ -17,8 +17,8 @@ export default async function KasPage() {
     <div>
       <ServicePageHero
         kicker="KAS OPAL"
-        title="Kas yang bisa dibaca warga."
-        description="Ringkasan publik untuk transparansi. Riwayat setiap rumah tetap tersedia melalui tautan privat dari RT."
+        title="Transparansi Kas."
+        description="Ringkasan publik untuk transparansi."
       />
 
       <section className="mx-auto max-w-[1440px] px-5 py-10 sm:px-8 lg:px-10 lg:py-14">

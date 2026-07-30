@@ -95,13 +95,16 @@ insert into public.announcements (title, body, published_at, pinned, published)
 select 'Panduan warga kini tersedia dalam format website', 'Aturan parkir, renovasi, stiker kendaraan, dan sampah dapat dibaca lebih nyaman dari ponsel.', '2026-07-18', true, true
 where not exists (select 1 from public.announcements where title = 'Panduan warga kini tersedia dalam format website');
 
+delete from public.resources
+where title = 'Petugas Pos dan Taman'
+  and href = 'https://docs.google.com/document/d/1wmdqSlR7bnE3eKftS89f7sxj6yCgZEvZhZORbBemUAA/edit?usp=sharing';
+
 insert into public.resources (title, description, href, category, requires_google_login, sort_order, published)
 values
 ('Kas OPAL', 'Pembukuan dan informasi iuran warga.', 'https://docs.google.com/spreadsheets/d/1GoA56flzgY-qJhXx4beZ5yvGSv3bLYIdYi8lhQvm0IA/edit?usp=sharing', 'Keuangan', false, 1, true),
 ('Surat Keterangan Pindah Rumah', 'Unduh format surat keterangan pindah rumah.', 'https://drive.google.com/uc?export=download&id=1RtAtt2Zfa0rR0ffndJnkgWQz18qN82gG', 'Surat', false, 2, true),
 ('Surat Keterangan Domisili', 'Unduh format surat keterangan domisili.', 'https://drive.google.com/uc?export=download&id=1t3YkIO9l_hUncoGyww7ixlEIDl1-AgMB', 'Surat', false, 3, true),
 ('Formulir Warga', 'Pengisian data warga OPAL.', 'https://forms.gle/jTQez4HBLuQQQGYKA', 'Data warga', true, 4, true),
-('Petugas Pos dan Taman', 'Kenali petugas yang membantu operasional OPAL.', 'https://docs.google.com/document/d/1wmdqSlR7bnE3eKftS89f7sxj6yCgZEvZhZORbBemUAA/edit?usp=sharing', 'Fasilitas', false, 5, true),
 ('Spesifikasi Cat dan Keramik', 'Acuan warna cat serta spesifikasi keramik rumah.', 'https://docs.google.com/document/d/1EFFWZlKYz0-bq32JyLDAfPPHsdPNlKUeUw6Td3pc8xE/edit?usp=sharing', 'Rumah', false, 6, true),
 ('Denah OPAL Type 6 x 12', 'Folder denah rumah OPAL Type 6 x 12.', 'https://drive.google.com/drive/folders/1Y5SDYOyxJFcMTAuBQgndaPFgAoxsiTij?usp=sharing', 'Rumah', false, 7, true),
 ('Surat Keterangan Belum Menikah', 'Format surat keterangan belum menikah.', 'https://docs.google.com/document/d/1Sj_NuC6lVcJzq1JlFeeBcUeKW7ZDe2Cq/edit?usp=drive_link&ouid=105034026230313585332&rtpof=true&sd=true', 'Surat', false, 8, true)

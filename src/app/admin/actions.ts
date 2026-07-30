@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/admin";
 import { renderOfficialDocument, type DocumentSettings } from "@/lib/documents";
 import { formatDocumentNumber } from "@/lib/document-number";
 import { sanitizeMarkdown } from "@/lib/markdown";
+import { jakartaPeriod, KAS_OPAL_CONTRIBUTION_CATEGORY, isPeriodMonth } from "@/lib/monthly-dues";
 import { isFloorPlanAssetPath } from "@/lib/storage-paths";
 import { createAccessToken, hashAccessToken } from "@/lib/security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -31,9 +32,12 @@ function success(message: string, returnTo = "/admin") {
   revalidatePath("/layanan");
   revalidatePath("/kas");
   revalidatePath("/admin");
+  revalidatePath("/admin/kas");
   revalidatePath("/admin/peta-rumah");
   const safeReturnTo = /^\/admin(?:\/|$)/.test(returnTo) ? returnTo : "/admin";
-  redirect(`${safeReturnTo}?message=${encodeURIComponent(message)}`);
+  const destination = new URL(safeReturnTo, "https://opal.local");
+  destination.searchParams.set("message", message);
+  redirect(`${destination.pathname}${destination.search}${destination.hash}`);
 }
 
 const mapPropertySchema = z.object({
@@ -565,6 +569,58 @@ export async function prepareMonthlyContributions(formData: FormData) {
   });
   if (error) throw new Error("Tagihan iuran belum dapat disiapkan.");
   success(`${rows.length} tagihan iuran berstatus belum dibayar telah disiapkan.`);
+}
+
+export async function prepareKasMonthlyContributions(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const periodMonth = textValue(formData, "periodMonth");
+  const returnTo = textValue(formData, "returnTo", false) || "/admin/kas";
+  if (!isPeriodMonth(periodMonth)) throw new Error("Periode iuran Kas tidak valid.");
+  if (periodMonth !== jakartaPeriod()) throw new Error("Tagihan Iuran Kas OPAL hanya dapat disiapkan untuk bulan berjalan.");
+
+  const [{ data: fee, error: feeError }, { data: properties, error: propertiesError }, { data: existing, error: existingError }] = await Promise.all([
+    supabase.from("fee_schedules").select("amount_rupiah").eq("label", KAS_OPAL_CONTRIBUTION_CATEGORY).eq("is_active", true).maybeSingle(),
+    supabase.from("properties").select("id").eq("active", true),
+    supabase.from("property_contributions").select("property_id").eq("category", KAS_OPAL_CONTRIBUTION_CATEGORY).eq("period", `${periodMonth}-01`),
+  ]);
+  if (feeError || !fee || !Number.isInteger(fee.amount_rupiah) || fee.amount_rupiah < 1) throw new Error("Tarif Iuran Kas OPAL aktif belum tersedia.");
+  if (propertiesError || existingError) throw new Error("Data rumah atau tagihan iuran Kas tidak dapat dimuat.");
+  if (!properties?.length) throw new Error("Belum ada rumah aktif untuk disiapkan tagihannya.");
+
+  const existingPropertyIds = new Set((existing ?? []).map((item) => item.property_id));
+  const rows = properties.filter((property) => !existingPropertyIds.has(property.id)).map((property) => ({
+    property_id: property.id,
+    category: KAS_OPAL_CONTRIBUTION_CATEGORY,
+    period: `${periodMonth}-01`,
+    amount_rupiah: fee.amount_rupiah,
+    status: "pending",
+    source_reference: `kas-monthly:${periodMonth}`,
+  }));
+  if (!rows.length) return success("Tagihan Iuran Kas OPAL bulan ini sudah tersedia untuk semua rumah aktif.", returnTo);
+  const { error } = await supabase.from("property_contributions").upsert(rows, {
+    onConflict: "property_id,category,period,amount_rupiah,source_reference",
+    ignoreDuplicates: true,
+  });
+  if (error) throw new Error("Tagihan Iuran Kas OPAL belum dapat disiapkan.");
+  success(`${rows.length} tagihan Iuran Kas OPAL bulan ini telah disiapkan sebagai belum dibayar.`, returnTo);
+}
+
+export async function updateKasContributionStatus(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = textValue(formData, "id");
+  const status = textValue(formData, "status");
+  const returnTo = textValue(formData, "returnTo", false) || "/admin/kas";
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error("Catatan iuran Kas tidak valid.");
+  if (!['paid', 'pending', 'waived'].includes(status)) throw new Error("Status iuran Kas tidak valid.");
+  const paidAt = status === "paid" ? textValue(formData, "paidAt") : null;
+  if (paidAt && !/^\d{4}-\d{2}-\d{2}$/.test(paidAt)) throw new Error("Tanggal pembayaran tidak valid.");
+
+  const { data: contribution, error: lookupError } = await supabase.from("property_contributions").select("id,category").eq("id", id).maybeSingle();
+  if (lookupError || !contribution || contribution.category !== KAS_OPAL_CONTRIBUTION_CATEGORY) throw new Error("Catatan Iuran Kas OPAL tidak ditemukan.");
+  const { error } = await supabase.from("property_contributions").update({ status, paid_at: paidAt }).eq("id", id);
+  if (error) throw new Error("Status pembayaran Iuran Kas OPAL tidak dapat disimpan.");
+  const message = status === "paid" ? "Pembayaran Iuran Kas OPAL telah dicatat." : status === "waived" ? "Iuran Kas OPAL ditandai dibebaskan." : "Iuran Kas OPAL dikembalikan ke status belum dibayar.";
+  success(message, returnTo);
 }
 
 export async function saveStaffProfile(formData: FormData) {
