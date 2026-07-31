@@ -100,7 +100,15 @@ test("Asisten OPAL dapat dibuka dengan input aktif tanpa percakapan palsu", asyn
   const trigger = page.getByRole("button", { name: "Buka Asisten OPAL" });
   await expect(trigger).toBeVisible();
   await trigger.click();
-  await expect(page.getByRole("dialog", { name: "Asisten OPAL" })).toBeVisible();
+  const assistant = page.getByRole("dialog", { name: "Asisten OPAL" });
+  await expect(assistant).toBeVisible();
+  const assistantLayout = await assistant.evaluate((element) => {
+    const panel = element.getBoundingClientRect();
+    const header = document.querySelector("header")?.getBoundingClientRect();
+    return { panelTop: panel.top, headerBottom: header?.bottom ?? 0, zIndex: getComputedStyle(element).zIndex };
+  });
+  expect(assistantLayout.panelTop).toBeGreaterThanOrEqual(assistantLayout.headerBottom);
+  expect(assistantLayout.zIndex).toBe("99");
   await expect(page.getByText("Tanya informasi OPAL.")).toBeVisible();
   await expect(page.getByLabel("Tulis pertanyaan untuk Asisten OPAL")).toBeEnabled();
   await expect(page.getByRole("button", { name: "Berapa iuran bulan ini?" })).toBeVisible();
