@@ -11,6 +11,11 @@ export const metadata: Metadata = {
   },
   description: "Pusat informasi, panduan, dan layanan warga OPAL Residence, Sidoarjo.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  icons: {
+    icon: "/images/logo AI.png",
+    shortcut: "/images/logo AI.png",
+    apple: "/images/logo AI.png",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
