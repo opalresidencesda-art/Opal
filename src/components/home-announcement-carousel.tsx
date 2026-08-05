@@ -44,19 +44,19 @@ export function HomeAnnouncementCarousel({ announcements, id = "pengumuman" }: {
     <article
       id={id}
       tabIndex={-1}
-      className="flex h-full min-h-[18rem] flex-col bg-[#111e1d] px-5 py-5 text-[#dce7e4] sm:min-h-[19rem] sm:px-7 sm:py-7"
+      className="flex h-full min-h-[16rem] flex-col bg-surface-raised px-5 py-5 text-ink md:min-h-[19rem] md:bg-action md:px-7 md:py-7 md:text-on-action"
       aria-label="Pengumuman warga"
       aria-roledescription="carousel"
     >
-      <div className="flex items-center justify-between gap-4 text-[#dce7e4]">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-[#0e6b63] text-[#dce7e4]" aria-hidden="true">
+          <span className="grid size-10 place-items-center rounded-xl bg-brand-soft text-brand-deep md:bg-brand md:text-on-brand" aria-hidden="true">
             <Bell size={21} weight="fill" />
           </span>
           <p className="text-[0.78rem] font-extrabold">Pengumuman warga</p>
         </div>
         {count > 1 ? (
-          <p className="shrink-0 text-[0.7rem] font-extrabold tabular-nums text-[#dce7e4]/65">
+          <p className="shrink-0 text-[0.7rem] font-extrabold tabular-nums text-ink-muted md:text-on-action/65">
             {safeIndex + 1} dari {count}
           </p>
         ) : null}
@@ -64,7 +64,7 @@ export function HomeAnnouncementCarousel({ announcements, id = "pengumuman" }: {
 
       <div className="relative mt-7 flex-1 overflow-hidden">
         {announcements.length ? (
-          <time dateTime={announcement.publishedAt} className="text-[0.67rem] font-bold text-[#dce7e4]/62">
+          <time dateTime={announcement.publishedAt} className="text-[0.67rem] font-bold text-ink-faint md:text-on-action/62">
             Diperbarui {formatDate(announcement.publishedAt)}
           </time>
         ) : null}
@@ -80,15 +80,15 @@ export function HomeAnnouncementCarousel({ announcements, id = "pengumuman" }: {
             aria-atomic="true"
           >
             <div className="min-w-0">
-              <h2 className="mt-3 max-w-3xl text-[1.28rem] font-extrabold leading-[1.12] tracking-[-0.04em] text-[#dce7e4] sm:text-[1.55rem]">
+              <h2 className="mt-3 max-w-3xl text-[1.28rem] font-extrabold leading-[1.12] tracking-[-0.04em] text-ink md:text-[1.55rem] md:text-on-action">
                 {announcement.title}
               </h2>
-              <p className="mt-3 max-w-3xl text-[0.82rem] leading-6 text-[#dce7e4]/76">
+              <p className="mt-3 max-w-3xl text-[0.82rem] leading-6 text-ink-muted md:text-on-action/76">
                 {announcement.body}
               </p>
             </div>
             {announcementImageUrl(announcement) ? (
-              <figure className="relative aspect-[16/10] min-h-36 overflow-hidden rounded-[1.15rem] border border-white/12 bg-[#1a302d] md:order-2 md:aspect-[4/3] md:min-h-0">
+              <figure className="relative aspect-[16/10] min-h-36 overflow-hidden rounded-[1.15rem] border border-line bg-surface-subtle md:order-2 md:aspect-[4/3] md:min-h-0 md:border-white/12 md:bg-[#1a302d]">
                 <Image src={announcementImageUrl(announcement) ?? ""} alt={announcement.imageAlt || announcement.title} fill sizes="(min-width: 768px) 30vw, 100vw" unoptimized loading="lazy" className="object-cover" />
               </figure>
             ) : null}
@@ -102,7 +102,7 @@ export function HomeAnnouncementCarousel({ announcements, id = "pengumuman" }: {
             type="button"
             onClick={() => move(-1)}
             aria-label="Pengumuman sebelumnya"
-            className="grid size-11 place-items-center rounded-xl border border-[#1b2d2b] bg-[#0b1514] text-[#dce7e4] transition-colors hover:border-[#0e6b63] hover:bg-[#0e6b63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dce7e4]"
+            className="grid size-11 place-items-center rounded-xl border border-line bg-surface-subtle text-ink transition-colors hover:border-brand hover:bg-brand hover:text-on-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand md:border-[#1b2d2b] md:bg-[#0b1514] md:text-on-action md:hover:border-brand md:hover:bg-brand md:focus-visible:ring-on-action"
           >
             <CaretLeft size={18} weight="bold" aria-hidden="true" />
           </button>
@@ -111,7 +111,7 @@ export function HomeAnnouncementCarousel({ announcements, id = "pengumuman" }: {
               type="button"
               onClick={() => setPaused((current) => !current)}
               aria-label={paused ? "Putar pengumuman otomatis" : "Jeda pengumuman otomatis"}
-              className="grid size-11 place-items-center rounded-xl border border-[#1b2d2b] bg-[#0b1514] text-[#dce7e4] transition-colors hover:border-[#0e6b63] hover:bg-[#0e6b63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dce7e4]"
+              className="grid size-11 place-items-center rounded-xl border border-line bg-surface-subtle text-ink transition-colors hover:border-brand hover:bg-brand hover:text-on-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand md:border-[#1b2d2b] md:bg-[#0b1514] md:text-on-action md:hover:border-brand md:hover:bg-brand md:focus-visible:ring-on-action"
             >
               {paused ? <Play size={17} weight="fill" aria-hidden="true" /> : <Pause size={17} weight="fill" aria-hidden="true" />}
             </button>
@@ -120,7 +120,7 @@ export function HomeAnnouncementCarousel({ announcements, id = "pengumuman" }: {
             type="button"
             onClick={() => move(1)}
             aria-label="Pengumuman berikutnya"
-            className="grid size-11 place-items-center rounded-xl border border-[#1b2d2b] bg-[#0b1514] text-[#dce7e4] transition-colors hover:border-[#0e6b63] hover:bg-[#0e6b63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#dce7e4]"
+            className="grid size-11 place-items-center rounded-xl border border-line bg-surface-subtle text-ink transition-colors hover:border-brand hover:bg-brand hover:text-on-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand md:border-[#1b2d2b] md:bg-[#0b1514] md:text-on-action md:hover:border-brand md:hover:bg-brand md:focus-visible:ring-on-action"
           >
             <CaretRight size={18} weight="bold" aria-hidden="true" />
           </button>

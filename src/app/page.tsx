@@ -30,7 +30,7 @@ export default async function Home() {
           sizes="100vw"
           className="home-hero-image object-cover object-[62%_center] sm:object-center"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,19,16,0.42)_0%,rgba(3,19,16,0.68)_48%,rgba(3,19,16,0.94)_100%)] lg:bg-[linear-gradient(90deg,rgba(3,19,16,0.72)_0%,rgba(3,19,16,0.58)_50%,rgba(3,19,16,0.4)_100%)]" aria-hidden="true" />
+        <div className="home-hero-overlay absolute inset-0" aria-hidden="true" />
 
         <div className="relative mx-auto flex min-h-[760px] max-w-[1440px] items-center px-5 py-28 sm:min-h-[740px] sm:px-8 sm:py-32 lg:min-h-[min(800px,100dvh)] lg:px-10 lg:py-28">
           <div className="w-full">
@@ -40,31 +40,31 @@ export default async function Home() {
               <HomePortalSearch index={buildHomeSearchIndex(data)} />
             </div>
 
-            <div className="mx-auto mt-8 grid max-w-5xl overflow-hidden rounded-[1.5rem] bg-[#111e1d] shadow-[0_18px_50px_rgba(2,20,16,0.24)] lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
+            <div className="mx-auto mt-8 grid max-w-5xl overflow-hidden rounded-[1.5rem] border border-line bg-surface-raised shadow-[0_12px_30px_rgba(2,20,16,0.14)] lg:bg-action lg:shadow-[0_18px_50px_rgba(2,20,16,0.24)] lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
               <div className="min-w-0">
                 <HomeAnnouncementCarousel announcements={data.announcements} />
               </div>
-              <aside className="flex min-h-[18rem] flex-col border-t border-[#1b2d2b] bg-[#dce7e4] px-5 py-5 text-[#0b1514] sm:px-7 sm:py-7 lg:border-t-0 lg:border-l" aria-labelledby="home-start-title">
+              <aside className="flex min-h-[16rem] flex-col border-t border-line bg-surface-raised px-5 py-5 text-ink sm:px-7 sm:py-7 lg:min-h-[19rem] lg:border-t-0 lg:border-l" aria-labelledby="home-start-title">
                 <div>
-                  <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.13em] text-[#087568]">Mulai dari sini</p>
-                  <h2 id="home-start-title" className="mt-3 text-[1.2rem] font-extrabold leading-[1.12] tracking-[-0.04em] text-[#09231e]">Pilih jalur yang paling dibutuhkan.</h2>
+                  <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.13em] text-brand">Mulai dari sini</p>
+                  <h2 id="home-start-title" className="mt-3 text-[1.2rem] font-extrabold leading-[1.12] tracking-[-0.04em] text-ink">Pilih jalur yang paling dibutuhkan.</h2>
                 </div>
-                <div className="mt-7 border-y border-[#d4ddd7]">
-                  <Link href="#akses-cepat" className="group grid min-h-[5.75rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[#d4ddd7] py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset">
+                <div className="mt-7 border-y border-line">
+                  <Link href="#akses-cepat" className="group grid min-h-[5.75rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-line py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset">
                     <span className="grid size-9 place-items-center rounded-xl bg-brand text-on-brand" aria-hidden="true"><ArrowRight size={19} weight="bold" /></span>
                     <span>
-                      <span className="block text-[0.88rem] font-extrabold text-[#09231e]">Akses cepat warga</span>
-                      <span className="mt-1 block text-[0.72rem] leading-5 text-[#48605a]">Surat, data, dan keuangan</span>
+                      <span className="block text-[0.88rem] font-extrabold text-ink">Akses cepat warga</span>
+                      <span className="mt-1 block text-[0.72rem] leading-5 text-ink-muted">Surat, data, dan keuangan</span>
                     </span>
-                    <ArrowRight className="text-[#586d67] transition-transform group-hover:translate-x-1 group-hover:text-[#05564d]" size={20} weight="bold" aria-hidden="true" />
+                    <ArrowRight className="text-ink-faint transition-transform group-hover:translate-x-1 group-hover:text-brand" size={20} weight="bold" aria-hidden="true" />
                   </Link>
                   <Link href="/panduan-harmonis" className="group grid min-h-[5.75rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset">
-                    <span className="grid size-9 place-items-center rounded-xl border border-[#d4ddd7] text-[#087568]" aria-hidden="true"><BookOpenText size={20} weight="fill" /></span>
+                    <span className="grid size-9 place-items-center rounded-xl border border-line text-brand" aria-hidden="true"><BookOpenText size={20} weight="fill" /></span>
                     <span>
-                      <span className="block text-[0.88rem] font-extrabold text-[#09231e]">Panduan Harmonis</span>
-                      <span className="mt-1 block text-[0.72rem] leading-5 text-[#48605a]">Aturan dan informasi lingkungan</span>
+                      <span className="block text-[0.88rem] font-extrabold text-ink">Panduan Harmonis</span>
+                      <span className="mt-1 block text-[0.72rem] leading-5 text-ink-muted">Aturan dan informasi lingkungan</span>
                     </span>
-                    <ArrowRight className="text-[#586d67] transition-transform group-hover:translate-x-1 group-hover:text-[#05564d]" size={20} weight="bold" aria-hidden="true" />
+                    <ArrowRight className="text-ink-faint transition-transform group-hover:translate-x-1 group-hover:text-brand" size={20} weight="bold" aria-hidden="true" />
                   </Link>
                 </div>
               </aside>
