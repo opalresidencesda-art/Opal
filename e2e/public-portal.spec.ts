@@ -9,6 +9,31 @@ test("layanan native dapat dibuka tanpa tautan Google", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Pendataan warga", exact: true })).toHaveAttribute("href", "/pendataan-warga");
 });
 
+test("menu mobile membuka organic overlay dan dapat ditutup dengan Escape", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  const openButton = page.getByRole("button", { name: "Buka menu navigasi" });
+  await expect(openButton).toHaveAttribute("aria-expanded", "false");
+  await openButton.click();
+
+  const mobileMenu = page.getByRole("navigation", { name: "Navigasi mobile" });
+  await expect(mobileMenu).toBeVisible();
+  const closeButton = page.getByRole("button", { name: "Tutup menu navigasi" });
+  await expect(closeButton).toBeVisible();
+  await expect(closeButton).toHaveAttribute("aria-expanded", "true");
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+  await expect(mobileMenu.getByRole("link", { name: "Beranda", exact: true })).toBeVisible();
+  await expect(mobileMenu.getByRole("link", { name: "Panduan harmonis", exact: true })).toBeVisible();
+  await expect(mobileMenu.getByRole("link", { name: "Kas OPAL", exact: true })).toBeVisible();
+  await expect(mobileMenu.getByRole("link", { name: /Admin RT|Admin aktif/ })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(mobileMenu).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Buka menu navigasi" })).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("");
+});
+
 test("semua halaman publik utama dapat dibuka tanpa overflow horizontal", async ({ page }) => {
   test.setTimeout(120_000);
   const routes = [
