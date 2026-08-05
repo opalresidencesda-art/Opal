@@ -120,6 +120,31 @@ test("Beranda mempertahankan pengumuman dan tidak overflow di kedua tema", async
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test("placeholder pencarian Beranda tetap terbaca di kontrol terang pada mobile dan kedua tema", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  const contrastOfSearchPlaceholder = () => page.locator("#home-portal-search").evaluate((input) => {
+    const parseColor = (value: string) => value.match(/\d+(?:\.\d+)?/g)?.slice(0, 3).map(Number) ?? [0, 0, 0];
+    const luminance = (value: string) => {
+      const [red, green, blue] = parseColor(value).map((channel) => {
+        const normalized = channel / 255;
+        return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+      });
+      return (0.2126 * red) + (0.7152 * green) + (0.0722 * blue);
+    };
+    const placeholder = getComputedStyle(input, "::placeholder").color;
+    const background = getComputedStyle(input.parentElement!).backgroundColor;
+    const foregroundLuminance = luminance(placeholder);
+    const backgroundLuminance = luminance(background);
+    return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) / (Math.min(foregroundLuminance, backgroundLuminance) + 0.05);
+  });
+
+  await expect.poll(contrastOfSearchPlaceholder).toBeGreaterThanOrEqual(4.5);
+  await page.getByRole("button", { name: "Ganti tema warna" }).click();
+  await expect.poll(contrastOfSearchPlaceholder).toBeGreaterThanOrEqual(4.5);
+});
+
 test("Asisten OPAL dapat dibuka dengan input aktif tanpa percakapan palsu", async ({ page }) => {
   await page.goto("/");
   const trigger = page.getByRole("button", { name: "Buka Asisten OPAL" });

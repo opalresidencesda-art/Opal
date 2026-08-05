@@ -85,13 +85,13 @@ export function HomePortalSearch({ index }: HomePortalSearchProps) {
             aria-activedescendant={open && activeResult ? `${listId}-${activeResult.id}` : undefined}
             role="combobox"
             placeholder="Contoh: surat domisili, iuran, parkir"
-            className="home-portal-search-input min-w-0 flex-1 bg-transparent text-[0.95rem] font-semibold text-action outline-none placeholder:text-ink-muted focus:outline-none sm:text-[1.05rem]"
+            className="home-portal-search-input min-w-0 flex-1 bg-transparent text-[0.95rem] font-semibold text-action outline-none placeholder:text-ink-on-light-muted focus:outline-none sm:text-[1.05rem]"
           />
           {hasQuery ? (
             <button
               type="button"
               onClick={() => updateQuery("")}
-              className="grid size-10 shrink-0 place-items-center rounded-xl text-ink-muted transition hover:bg-brand-soft hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              className="grid size-10 shrink-0 place-items-center rounded-xl text-ink-on-light-muted transition hover:bg-brand-soft hover:text-brand-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               aria-label="Hapus pencarian"
             >
               <X size={20} weight="bold" aria-hidden="true" />
