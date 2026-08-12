@@ -345,14 +345,40 @@ button:active {
   line-height: 1.8;
 }
 
-.guide-prose .markdown-content h2 {
-  margin-top: 3.25rem;
+.guide-prose .markdown-content h3 {
+  margin-top: 2.8rem;
+  color: var(--ink);
+  font-size: 1.35rem;
+  font-weight: 780;
+  line-height: 1.3;
+  letter-spacing: -0.03em;
 }
 
-.guide-prose .markdown-content h3 {
-  margin-top: 2.2rem;
-  color: var(--ink);
-  font-size: 1.1rem;
+.guide-prose .markdown-content h3:first-child {
+  margin-top: 0;
+}
+
+.guide-prose .markdown-content h4 {
+  margin-top: 2.15rem;
+  color: var(--brand-deep);
+  font-size: 1.08rem;
+  font-weight: 760;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+}
+
+@keyframes guide-topic-cue {
+  0% { opacity: 0; transform: translateY(-50%) translateX(0.5rem); }
+  15%, 78% { opacity: 1; transform: translateY(-50%) translateX(0); }
+  100% { opacity: 0; transform: translateY(-50%) translateX(0); }
+}
+
+.guide-topic-cue {
+  animation: guide-topic-cue 1s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-topic-cue { animation: none; }
 }
 
 .guide-prose .markdown-content ul {

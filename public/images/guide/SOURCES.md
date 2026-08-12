@@ -1,7 +1,12 @@
-# Foto ilustrasi Panduan Harmonis
+# Visual Panduan Harmonis
 
-- `driveway-tropis.jpg`: Unsplash, https://unsplash.com/photos/driveway-leading-to-a-modern-house-with-palm-trees-ZqPT0y0nzWw
-- `renovasi-rumah.jpg`: Pexels, https://www.pexels.com/photo/home-renovation-4567376/
-- `taman-lingkungan.jpg`: Unsplash, https://unsplash.com/photos/concrete-pathway-in-flower-garden-with-no-people-P7X8o2U66t4
+- `parkir-diagram.png`: potongan halaman 3 Panduan Harmonis OPAL 2023.
+- `stiker-pemasangan.png`: potongan halaman 4 Panduan Harmonis OPAL 2023.
+- `renovasi-panduan.png`: potongan halaman 5 Panduan Harmonis OPAL 2023.
+- `sampah-240-liter.png`: potongan halaman 6 Panduan Harmonis OPAL 2023.
 
-Foto dipakai sebagai ilustrasi umum. Foto tersebut bukan dokumentasi OPAL Residence.
+Sumber PDF: https://drive.google.com/file/d/1xR1jRrubSRYd_l92iWl2xtygvnchcdOK/view
+
+QR lama pada halaman stiker sudah diganti pemutar video langsung:
+- Mobil: https://www.youtube.com/watch?v=qtyrlcLybZg
+- Motor: https://www.youtube.com/watch?v=9blRp958AXs

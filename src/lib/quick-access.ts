@@ -17,7 +17,7 @@ export type QuickAccessCategory = {
 export const quickAccessCategories: QuickAccessCategory[] = [
   {
     id: "surat",
-    label: "Surat",
+    label: "Surat Menyurat",
     description: "Pilih surat yang ingin diajukan. RT akan memeriksa data sebelum dokumen diterbitkan.",
     icon: "file",
     items: [
@@ -43,7 +43,7 @@ export const quickAccessCategories: QuickAccessCategory[] = [
   },
   {
     id: "panduan",
-    label: "Panduan",
+    label: "Panduan Harmonis Opal",
     description: "Buka aturan lingkungan, informasi petugas, dan referensi rumah OPAL.",
     icon: "book",
     items: [
@@ -75,7 +75,7 @@ export const quickAccessCategories: QuickAccessCategory[] = [
   },
   {
     id: "data",
-    label: "Data",
+    label: "Isi Data Warga",
     description: "Perbarui informasi penghuni dan status rumah melalui formulir resmi OPAL.",
     icon: "users",
     items: [
@@ -90,7 +90,7 @@ export const quickAccessCategories: QuickAccessCategory[] = [
   },
   {
     id: "keuangan",
-    label: "Keuangan",
+    label: "Informasi Kas Opal",
     description: "Periksa iuran yang berlaku dan pembukuan publik OPAL.",
     icon: "wallet",
     items: [

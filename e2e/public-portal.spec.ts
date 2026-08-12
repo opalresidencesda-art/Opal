@@ -4,9 +4,49 @@ import AxeBuilder from "@axe-core/playwright";
 test("layanan native dapat dibuka tanpa tautan Google", async ({ page }) => {
   await page.goto("/layanan");
   await expect(page).toHaveURL(/\/#akses-cepat$/);
-  await expect(page.getByRole("heading", { name: "Pilih kebutuhan Anda." })).toBeVisible();
-  await page.getByRole("button", { name: "Data" }).click();
-  await expect(page.getByRole("link", { name: "Pendataan warga", exact: true })).toHaveAttribute("href", "/pendataan-warga");
+  await expect(page.getByRole("heading", { name: "Akses cepat warga" })).toBeVisible();
+  await expect(page.locator('#quick-access-panel a[href="/surat/domisili"]')).toBeVisible();
+});
+
+test("pintasan hero memilih layanan warga yang sesuai", async ({ page }) => {
+  test.setTimeout(60_000);
+  const expectedPanels = [
+    ["Surat Menyurat", "surat", "/surat/domisili", "Surat Keterangan Domisili"],
+    ["Panduan Harmonis Opal", "panduan", "/panduan-harmonis", "Panduan Harmonis"],
+    ["Isi Data Warga", "data", "/pendataan-warga", "Pendataan warga"],
+    ["Informasi Kas Opal", "keuangan", "/kas", "Kas OPAL"],
+  ] as const;
+
+  await page.goto("/");
+  await expect(page.getByText("RT 3 RW 15. Jl. Delima Selatan, Kel. Tambakrejo, Kec. Waru, Kab. Sidoarjo, Jawa Timur 61256")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Selamat Datang Warga Opal!" })).toBeVisible();
+  await expect(page.getByText("Ketik apa yang anda cari di sini.")).toBeVisible();
+
+  const heroShortcuts = page.getByLabel("Pintasan layanan warga");
+  const panel = page.locator("#quick-access-panel");
+
+  for (const [label, id, expectedHref, expectedTitle] of expectedPanels) {
+    const navigationCount = await page.evaluate(
+      () => performance.getEntriesByType("navigation").length,
+    );
+
+    await heroShortcuts.getByRole("link", { name: label, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`\\/?akses=${id}#akses-cepat$`));
+    await expect
+      .poll(() =>
+        page.evaluate(() => performance.getEntriesByType("navigation").length),
+      )
+      .toBe(navigationCount);
+    await expect(panel.getByRole("heading", { name: label, exact: true })).toBeVisible();
+    await expect(heroShortcuts.getByRole("link", { name: label, exact: true })).toHaveAttribute("aria-current", "true");
+    const selectedService = panel.locator(`a[href="${expectedHref}"]`);
+    await expect(selectedService).toBeVisible();
+    await expect(selectedService).toContainText(expectedTitle);
+  }
+
+  await expect(page.getByText("Pilih kebutuhan Anda.")).toHaveCount(0);
+  await expect(page.getByText("Tekan salah satu kategori, lalu pilih layanan atau informasi yang ingin dibuka.")).toHaveCount(0);
+  await expect(page.getByText("Pilih kategori")).toHaveCount(0);
 });
 
 test("menu mobile membuka organic overlay dan dapat ditutup dengan Escape", async ({ page }) => {
@@ -55,7 +95,7 @@ test("semua halaman publik utama dapat dibuka tanpa overflow horizontal", async 
     const response = await page.goto(route, { timeout: 60_000, waitUntil: "domcontentloaded" });
     expect(response?.ok(), `${route} gagal dimuat`).toBe(true);
     if (route === "/layanan") {
-      await expect(page.getByRole("heading", { name: "Pilih kebutuhan Anda." })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Akses cepat warga" })).toBeVisible();
     } else {
       await expect(page.locator("h1")).toBeVisible();
     }
@@ -120,6 +160,17 @@ test("Beranda mempertahankan pengumuman dan tidak overflow di kedua tema", async
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test("Beranda tetap rapi pada viewport ponsel sempit", async ({ page }) => {
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/?akses=surat#akses-cepat");
+    await expect(page.getByRole("heading", { name: "Selamat Datang Warga Opal!" })).toBeVisible();
+    await expect(page.getByLabel("Pintasan layanan warga").getByRole("link", { name: "Surat Menyurat", exact: true })).toBeVisible();
+    await expect(page.locator('#quick-access-panel a[href="/surat/pindah-rumah"]')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  }
+});
+
 test("placeholder pencarian Beranda tetap terbaca di kontrol terang pada mobile dan kedua tema", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
@@ -172,34 +223,61 @@ test("Asisten OPAL dapat dibuka dengan input aktif tanpa percakapan palsu", asyn
   await expect(page.getByRole("dialog", { name: "Asisten OPAL" })).toHaveCount(0);
 });
 
-test("panduan memiliki anchor dan tidak overflow pada viewport aktif", async ({ page }) => {
+test("tautan panduan lama tetap membuka bagian yang tepat", async ({ page }) => {
   await page.goto("/panduan-harmonis#stiker-kendaraan");
-  await expect(page.locator("#stiker-kendaraan")).toBeVisible();
+  await expect(page).toHaveURL(/\/panduan-harmonis#stiker-kendaraan$/);
+  await expect(page.getByRole("heading", { name: "Stiker kendaraan" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test("panduan memakai peta topik visual dan rincian yang dapat dibuka", async ({ page }) => {
+test("panduan menampilkan semua topik terbuka dengan daftar isi", async ({ page }) => {
   await page.goto("/panduan-harmonis");
-  const topicIndex = page.locator('[data-guide-topic-index="true"]');
-  await expect(topicIndex).toBeVisible();
-  await expect(topicIndex.getByRole("link")).toHaveCount(5);
+  await expect(page.getByRole("heading", { name: "Panduan Harmonis", exact: true })).toBeVisible();
+  await expect(page.getByText("Cari aturan warga berdasarkan topik.")).toHaveCount(0);
+  await expect(page.locator('[data-guide-topic-index="true"]')).toHaveCount(0);
+  const desktopContents = page.locator('[data-guide-desktop-toc="true"]');
+  const guideSectionCount = await page.locator('[data-guide-section="true"]').count();
+  await expect(desktopContents.locator("a")).toHaveCount(guideSectionCount);
+  await expect(desktopContents.locator('a[aria-current="location"]')).toHaveClass(/bg-brand-soft/);
+  await expect(page.getByRole("heading", { name: "Iuran warga", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Panduan renovasi", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Iuran Pondok Tjandra", exact: true })).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Iuran Kas OPAL", exact: true })).toHaveCount(1);
+  await expect(page.locator('[data-guide-fee-card="true"]')).toHaveCount(2);
+  await expect(page.locator('#stiker-kendaraan iframe[title="Tutorial pemasangan stiker mobil OPAL"]')).toBeVisible();
+  await expect(page.locator('#stiker-kendaraan iframe[title="Tutorial pemasangan stiker motor OPAL"]')).toBeVisible();
+  await expect(page.getByText("Arsip QR panduan lama")).toHaveCount(0);
+  await expect(page.locator("#parkir > div h2")).toHaveText("Parkir mobil");
+  await expect(page.locator("#parkir .guide-prose h3").first()).toHaveText("Mobil pertama");
 
-  await topicIndex.locator('a[href="#renovasi"]').click();
+  await page.goto("/panduan-harmonis#renovasi");
   await expect(page).toHaveURL(/\/panduan-harmonis#renovasi$/);
 
-  const renovation = page.locator("#renovasi");
-  await expect(renovation).toBeVisible();
-  const details = renovation.locator("details");
-  await expect(details).not.toHaveAttribute("open", "");
-  await details.locator("summary").click();
-  await expect(details).toHaveAttribute("open", "");
+  await expect(page.getByRole("heading", { name: "Panduan renovasi" })).toBeVisible();
+  await expect(page.locator("details")).toHaveCount(0);
+  await expect(page.getByText("Baca aturan lengkap")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test("anchor panduan memindahkan konteks keyboard ke bagian tujuan", async ({ page }) => {
-  await page.goto("/panduan-harmonis#stiker-kendaraan");
-  await expect(page.locator("#stiker-kendaraan")).toBeVisible();
-  await expect.poll(() => page.evaluate(() => document.activeElement?.closest("article")?.id ?? document.activeElement?.id ?? "")).toBe("stiker-kendaraan");
+test("rute pembaca panduan lama dialihkan ke bagian halaman tunggal", async ({ page }) => {
+  await page.goto("/panduan-harmonis/parkir");
+  await expect(page).toHaveURL(/\/panduan-harmonis#parkir$/);
+  await expect(page.getByRole("heading", { name: "Parkir mobil" })).toBeVisible();
+});
+
+test("wheel Panduan menandai dan membuka bagian aktif di ponsel", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/panduan-harmonis");
+  const chapterWheel = page.getByRole("navigation", { name: "Navigasi bagian panduan" });
+  await expect(chapterWheel).toBeVisible();
+  await expect(chapterWheel.getByRole("link")).toHaveCount(await page.locator('[data-guide-section="true"]').count());
+  await expect(chapterWheel.getByRole("link", { name: "01 Iuran warga" })).toHaveAttribute("aria-current", "location");
+  await chapterWheel.getByRole("link", { name: "04 Panduan renovasi" }).click();
+  await expect(page).toHaveURL(/\/panduan-harmonis#renovasi$/);
+  await expect(page.locator('[data-guide-topic-cue="true"]')).toHaveText("Panduan renovasi");
+  await page.locator("#renovasi").scrollIntoViewIfNeeded();
+  await expect(chapterWheel.getByRole("link", { name: "04 Panduan renovasi" })).toHaveAttribute("aria-current", "location");
+  await expect(page.locator('[data-guide-topic-cue="true"]')).toHaveCount(0, { timeout: 2_000 });
 });
 
 test("tautan lewati memindahkan fokus ke isi utama", async ({ page }) => {

@@ -18,7 +18,7 @@ describe("home search", () => {
     });
   });
 
-  it("links guide and fee searches to their current public anchors", () => {
+  it("links guide and fee searches to their current public destinations", () => {
     expect(searchHomeContent(index, "parkir")[0]).toMatchObject({ href: "/panduan-harmonis#parkir", kind: "Panduan" });
     expect(searchHomeContent(index, "iuran")[0]).toMatchObject({ href: "#iuran" });
   });

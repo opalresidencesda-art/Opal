@@ -6,24 +6,32 @@ import { formatDate, formatRupiah, getActiveFees } from "@/lib/format";
 type FeeListProps = {
   fees: FeeSchedule[];
   compact?: boolean;
-  variant?: "default" | "home";
+  variant?: "default" | "guide" | "home";
 };
 
-function HomeFeeList({ fees }: { fees: FeeSchedule[] }) {
+function HomeFeeList({ fees, boxed = false }: { fees: FeeSchedule[]; boxed?: boolean }) {
   if (!fees.length) {
     return <p className="px-6 py-10 text-[0.82rem] leading-6 text-ink-muted sm:px-8 sm:py-12">Nominal iuran aktif akan ditampilkan setelah RT menerbitkannya.</p>;
   }
 
   return (
-    <div className="px-6 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
+    <div className={boxed ? "" : "px-6 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12"}>
       <div className="flex items-center justify-between gap-4 border-b border-line pb-4">
         <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.14em] text-brand">Nominal aktif</p>
         <p className="text-[0.66rem] font-bold text-ink-faint">Per rumah / bulan</p>
       </div>
 
-      <div>
+      <div className={boxed ? "mt-5 grid gap-4 xl:grid-cols-2" : ""}>
         {fees.map((fee, index) => (
-          <article key={fee.id ?? fee.label} className="grid grid-cols-[1.35rem_minmax(0,1fr)] gap-x-3 gap-y-4 border-t border-line py-6 first:border-t-0 sm:grid-cols-[1.6rem_minmax(0,1fr)_auto] sm:gap-x-5 sm:py-7">
+          <article
+            key={fee.id ?? fee.label}
+            data-guide-fee-card={boxed ? "true" : undefined}
+            className={`grid grid-cols-[1.35rem_minmax(0,1fr)] gap-x-3 gap-y-4 sm:grid-cols-[1.6rem_minmax(0,1fr)_auto] sm:gap-x-5 ${
+              boxed
+                ? "border border-line bg-surface p-5 sm:grid-cols-[1.6rem_minmax(0,1fr)] sm:p-6 xl:grid-cols-[1.6rem_minmax(0,1fr)]"
+                : "border-t border-line py-6 first:border-t-0 sm:py-7"
+            }`}
+          >
             <p className="pt-0.5 text-[0.66rem] font-extrabold tracking-[0.08em] text-brand" aria-hidden="true">{String(index + 1).padStart(2, "0")}</p>
             <div className="min-w-0">
               <h3 className="break-words text-[0.96rem] font-extrabold tracking-[-0.04em] text-ink sm:text-[1.08rem]">{fee.label}</h3>
@@ -33,7 +41,7 @@ function HomeFeeList({ fees }: { fees: FeeSchedule[] }) {
                 <span className="break-words">{fee.paymentMethod}</span>
               </p>
             </div>
-            <div className="col-start-2 min-w-0 sm:col-start-auto sm:text-right">
+            <div className={`col-start-2 min-w-0 ${boxed ? "" : "sm:col-start-auto sm:text-right"}`}>
               <p className="text-[0.6rem] font-bold uppercase tracking-[0.1em] text-ink-faint">Berlaku sejak {formatDate(fee.effectiveFrom)}</p>
               <p className="public-display mt-2 whitespace-nowrap tabular-nums text-[1.9rem] font-bold leading-none text-brand-deep sm:text-[2.3rem]">{formatRupiah(fee.amountRupiah)}</p>
             </div>
@@ -47,7 +55,7 @@ function HomeFeeList({ fees }: { fees: FeeSchedule[] }) {
 export function FeeList({ fees, compact = false, variant = "default" }: FeeListProps) {
   const activeFees = getActiveFees(fees);
 
-  if (variant === "home") return <HomeFeeList fees={activeFees} />;
+  if (variant === "home" || variant === "guide") return <HomeFeeList fees={activeFees} boxed={variant === "guide"} />;
   if (!activeFees.length) {
     return (
       <div>

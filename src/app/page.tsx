@@ -1,6 +1,6 @@
 import {
   ArrowRight,
-  BookOpenText,
+  MapPin,
   ShieldCheck,
   Wallet,
 } from "@phosphor-icons/react/dist/ssr";
@@ -10,13 +10,18 @@ import { FeeList } from "@/components/fee-list";
 import { HomeAnnouncementCarousel } from "@/components/home-announcement-carousel";
 import { HomePortalSearch } from "@/components/home-portal-search";
 import { HomeQuickAccess } from "@/components/home-quick-access";
+import { HomeQuickAccessControls } from "@/components/home-quick-access-controls";
 import { PublicHashScroll } from "@/components/public-hash-scroll";
 import { PublicReveal } from "@/components/public-reveal";
 import { getPortalData } from "@/lib/data";
 import { buildHomeSearchIndex } from "@/lib/home-search";
+import { quickAccessCategories } from "@/lib/quick-access";
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ akses?: string | string[] }> }) {
   const data = await getPortalData();
+  const params = await searchParams;
+  const requestedQuickAccessId = typeof params.akses === "string" ? params.akses : undefined;
+  const activeQuickAccessId = quickAccessCategories.find((category) => category.id === requestedQuickAccessId)?.id;
 
   return (
     <>
@@ -35,8 +40,12 @@ export default async function Home() {
         <div className="relative mx-auto flex min-h-[760px] max-w-[1440px] items-center px-5 py-28 sm:min-h-[740px] sm:px-8 sm:py-32 lg:min-h-[min(800px,100dvh)] lg:px-10 lg:py-28">
           <div className="w-full">
             <div className="mx-auto max-w-4xl text-center">
-              <h1 className="public-display text-[2.15rem] font-bold leading-[0.98] sm:text-5xl lg:text-[3.5rem]">Cari informasi warga.</h1>
-              <p className="mx-auto mt-3 max-w-2xl text-[0.82rem] leading-6 text-ink-inverse/78 sm:text-[0.95rem]">Temukan surat, iuran, panduan, atau pengumuman tanpa membuka menu satu per satu.</p>
+              <p className="mx-auto flex max-w-3xl items-start justify-center gap-2 text-[0.7rem] font-bold leading-5 text-ink-inverse/78 sm:items-center sm:text-[0.78rem]">
+                <MapPin className="mt-0.5 shrink-0 text-brand-highlight sm:mt-0" size={16} weight="fill" aria-hidden="true" />
+                <span>RT 3 RW 15. Jl. Delima Selatan, Kel. Tambakrejo, Kec. Waru, Kab. Sidoarjo, Jawa Timur 61256</span>
+              </p>
+              <h1 className="public-display mt-4 text-[2.15rem] font-bold leading-[0.98] sm:text-5xl lg:text-[3.5rem]">Selamat Datang Warga Opal!</h1>
+              <p className="mx-auto mt-3 max-w-2xl text-[0.82rem] leading-6 text-ink-inverse/78 sm:text-[0.95rem]">Ketik apa yang anda cari di sini.</p>
               <HomePortalSearch index={buildHomeSearchIndex(data)} />
             </div>
 
@@ -44,30 +53,7 @@ export default async function Home() {
               <div className="min-w-0">
                 <HomeAnnouncementCarousel announcements={data.announcements} />
               </div>
-              <aside className="flex min-h-[16rem] flex-col border-t border-line bg-surface-raised px-5 py-5 text-ink sm:px-7 sm:py-7 lg:min-h-[19rem] lg:border-t-0 lg:border-l" aria-labelledby="home-start-title">
-                <div>
-                  <p className="text-[0.7rem] font-extrabold uppercase tracking-[0.13em] text-brand">Mulai dari sini</p>
-                  <h2 id="home-start-title" className="mt-3 text-[1.2rem] font-extrabold leading-[1.12] tracking-[-0.04em] text-ink">Pilih jalur yang paling dibutuhkan.</h2>
-                </div>
-                <div className="mt-7 border-y border-line">
-                  <Link href="#akses-cepat" className="group grid min-h-[5.75rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-line py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset">
-                    <span className="grid size-9 place-items-center rounded-xl bg-brand text-on-brand" aria-hidden="true"><ArrowRight size={19} weight="bold" /></span>
-                    <span>
-                      <span className="block text-[0.88rem] font-extrabold text-ink">Akses cepat warga</span>
-                      <span className="mt-1 block text-[0.72rem] leading-5 text-ink-muted">Surat, data, dan keuangan</span>
-                    </span>
-                    <ArrowRight className="text-ink-faint transition-transform group-hover:translate-x-1 group-hover:text-brand" size={20} weight="bold" aria-hidden="true" />
-                  </Link>
-                  <Link href="/panduan-harmonis" className="group grid min-h-[5.75rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset">
-                    <span className="grid size-9 place-items-center rounded-xl border border-line text-brand" aria-hidden="true"><BookOpenText size={20} weight="fill" /></span>
-                    <span>
-                      <span className="block text-[0.88rem] font-extrabold text-ink">Panduan Harmonis</span>
-                      <span className="mt-1 block text-[0.72rem] leading-5 text-ink-muted">Aturan dan informasi lingkungan</span>
-                    </span>
-                    <ArrowRight className="text-ink-faint transition-transform group-hover:translate-x-1 group-hover:text-brand" size={20} weight="bold" aria-hidden="true" />
-                  </Link>
-                </div>
-              </aside>
+              <HomeQuickAccessControls initialActiveId={activeQuickAccessId} />
             </div>
           </div>
         </div>
@@ -75,17 +61,9 @@ export default async function Home() {
 
       <PublicReveal>
         <section id="akses-cepat" className="mx-auto max-w-[1440px] px-5 py-20 sm:px-8 sm:py-24 lg:px-10 lg:py-28" aria-labelledby="home-services-title">
-          <div className="max-w-3xl">
-            <p className="public-kicker">Akses cepat warga</p>
-            <h2 id="home-services-title" tabIndex={-1} className="hash-scroll-heading public-display mt-4 text-[1.8rem] font-bold leading-[0.98] text-ink sm:text-[2.4rem] lg:text-5xl">
-              Pilih kebutuhan Anda.
-            </h2>
-            <p className="mt-5 max-w-2xl text-[0.8rem] leading-6 text-ink-muted sm:text-[0.9rem] sm:leading-7">
-              Tekan salah satu kategori, lalu pilih layanan atau informasi yang ingin dibuka.
-            </p>
-          </div>
+          <h2 id="home-services-title" tabIndex={-1} className="hash-scroll-heading public-kicker">Akses cepat warga</h2>
 
-          <HomeQuickAccess />
+          <HomeQuickAccess initialActiveId={activeQuickAccessId} />
         </section>
       </PublicReveal>
 
