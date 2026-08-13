@@ -67,6 +67,9 @@ function mapFee(fee: DatabaseFee): FeeSchedule {
 }
 
 function mapAnnouncement(item: DatabaseAnnouncement): Announcement {
+  const localFallbackImage = !item.image_path && item.title === "81 TAHUN KEMERDEKAAN RI"
+    ? "/images/announcements/17-agustus-2026.webp"
+    : null;
   return {
     id: item.id,
     title: item.title,
@@ -75,6 +78,7 @@ function mapAnnouncement(item: DatabaseAnnouncement): Announcement {
     pinned: item.pinned,
     imagePath: item.image_path,
     imageAlt: item.image_alt,
+    imageUrl: localFallbackImage,
   };
 }
 

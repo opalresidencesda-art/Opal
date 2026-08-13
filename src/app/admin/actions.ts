@@ -27,6 +27,20 @@ function boolValue(formData: FormData, key: string) {
   return formData.get(key) === "on";
 }
 
+function uuidValue(formData: FormData, key: string, required = true) {
+  const value = textValue(formData, key, required);
+  if (!value) return "";
+  if (!z.string().uuid().safeParse(value).success) throw new Error(`${key} tidak valid.`);
+  return value;
+}
+
+function isoDateValue(value: string, label: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${label} tidak valid.`);
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) throw new Error(`${label} tidak valid.`);
+  return value;
+}
+
 function success(message: string, returnTo = "/admin") {
   revalidatePath("/");
   revalidatePath("/panduan-harmonis");
@@ -100,7 +114,7 @@ export async function saveFeeSchedule(formData: FormData) {
   const { supabase } = await requireAdmin();
   const label = textValue(formData, "label");
   const amountRupiah = Number(textValue(formData, "amountRupiah"));
-  const effectiveFrom = textValue(formData, "effectiveFrom");
+  const effectiveFrom = isoDateValue(textValue(formData, "effectiveFrom"), "Tanggal mulai iuran");
   if (!Number.isInteger(amountRupiah) || amountRupiah < 1 || amountRupiah > 10_000_000) throw new Error("Nominal iuran tidak valid.");
   const { error } = await supabase.rpc("activate_fee_schedule", {
     p_label: label,
@@ -116,7 +130,7 @@ export async function saveFeeSchedule(formData: FormData) {
 
 export async function saveAnnouncement(formData: FormData) {
   const { supabase } = await requireAdmin();
-  const id = textValue(formData, "id", false);
+  const id = uuidValue(formData, "id", false);
   const title = textValue(formData, "title");
   const imageAlt = textValue(formData, "imageAlt", false).slice(0, 200);
   const removeImage = boolValue(formData, "removeImage");
@@ -144,7 +158,7 @@ export async function saveAnnouncement(formData: FormData) {
   const payload = {
     title,
     body: textValue(formData, "body"),
-    published_at: textValue(formData, "publishedAt"),
+    published_at: isoDateValue(textValue(formData, "publishedAt"), "Tanggal publikasi"),
     pinned: boolValue(formData, "pinned"),
     published: boolValue(formData, "published"),
     image_path: imagePath,
@@ -163,7 +177,7 @@ export async function saveAnnouncement(formData: FormData) {
 
 export async function saveResource(formData: FormData) {
   const { supabase } = await requireAdmin();
-  const id = textValue(formData, "id", false);
+  const id = uuidValue(formData, "id", false);
   const category = textValue(formData, "category");
   const validCategories = ["Keuangan", "Surat", "Data warga", "Fasilitas", "Rumah"];
   if (!validCategories.includes(category)) throw new Error("Kategori layanan tidak valid.");
@@ -194,7 +208,7 @@ export async function saveResource(formData: FormData) {
 
 export async function saveGuideSection(formData: FormData) {
   const { supabase } = await requireAdmin();
-  const id = textValue(formData, "id");
+  const id = uuidValue(formData, "id");
   const sortOrder = Number(textValue(formData, "sortOrder"));
   if (!Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Urutan panduan tidak valid.");
   const { error } = await supabase.from("guide_sections").update({
@@ -236,7 +250,7 @@ export async function saveDocumentSettings(formData: FormData) {
 
 export async function reviewResidentSubmission(formData: FormData) {
   const { supabase, email } = await requireAdmin();
-  const id = textValue(formData, "id");
+  const id = uuidValue(formData, "id");
   const status = textValue(formData, "status");
   if (!["in_review", "needs_revision", "approved", "rejected"].includes(status)) throw new Error("Status pendataan tidak valid.");
   const note = textValue(formData, "adminNote", false);
@@ -273,7 +287,7 @@ export async function reviewResidentSubmission(formData: FormData) {
 
 export async function reviewServiceRequest(formData: FormData) {
   const { supabase, email } = await requireAdmin();
-  const id = textValue(formData, "id");
+  const id = uuidValue(formData, "id");
   const status = textValue(formData, "status");
   if (!["in_review", "needs_revision", "approved", "rejected"].includes(status)) throw new Error("Status surat tidak valid.");
   const { error } = await supabase.rpc("review_service_request_status", {
@@ -289,7 +303,7 @@ export async function reviewServiceRequest(formData: FormData) {
 
 export async function issueServiceRequest(formData: FormData) {
   const { supabase, email } = await requireAdmin();
-  const requestId = textValue(formData, "id");
+  const requestId = uuidValue(formData, "id");
   const { data: requestRow, error: requestError } = await supabase.from("service_requests").select("id,request_type,status,payload").eq("id", requestId).single();
   if (requestError || !requestRow) throw new Error("Permohonan surat tidak ditemukan.");
   if (requestRow.status !== "approved") throw new Error("Hanya permohonan yang telah disetujui dapat diterbitkan.");
@@ -341,7 +355,7 @@ export async function issueServiceRequest(formData: FormData) {
 
 export async function revokePropertyLink(formData: FormData) {
   const { supabase } = await requireAdmin();
-  const id = textValue(formData, "id");
+  const id = uuidValue(formData, "id");
   const { error } = await supabase.from("properties").update({ access_token_revoked_at: new Date().toISOString() }).eq("id", id);
   if (error) throw new Error("Tautan rumah tidak dapat dicabut.");
   success("Tautan privat rumah telah dicabut.");
@@ -364,7 +378,7 @@ export async function createProperty(formData: FormData) {
 export async function savePropertyProfile(formData: FormData) {
   const { supabase } = await requireAdmin();
   const property = mapPropertySchema.parse({
-    propertyId: textValue(formData, "propertyId", false) || undefined,
+    propertyId: uuidValue(formData, "propertyId", false) || undefined,
     gang: textValue(formData, "gang"),
     houseNumber: textValue(formData, "houseNumber"),
     occupancyStatus: textValue(formData, "occupancyStatus", false) || null,
@@ -469,14 +483,13 @@ export async function removePropertyMapPosition(propertyId: string) {
 
 export async function saveCashTransaction(formData: FormData) {
   const { supabase } = await requireAdmin();
-  const id = textValue(formData, "id", false);
+  const id = uuidValue(formData, "id", false);
   const returnTo = textValue(formData, "returnTo", false) || "/admin";
   const amount = Number(textValue(formData, "amountRupiah"));
   const direction = textValue(formData, "direction");
-  const transactionDate = textValue(formData, "transactionDate");
+  const transactionDate = isoDateValue(textValue(formData, "transactionDate"), "Tanggal transaksi");
   const category = textValue(formData, "category");
   const description = textValue(formData, "description", false);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(transactionDate)) throw new Error("Tanggal transaksi tidak valid.");
   if (category.length > 120) throw new Error("Kategori transaksi terlalu panjang.");
   if (description.length > 500) throw new Error("Keterangan transaksi terlalu panjang.");
   if (!Number.isInteger(amount) || amount < 1 || amount > 1_000_000_000) throw new Error("Nominal Kas tidak valid.");
@@ -509,18 +522,21 @@ export async function saveCashTransaction(formData: FormData) {
 
 export async function savePropertyContribution(formData: FormData) {
   const { supabase } = await requireAdmin();
-  const id = textValue(formData, "id", false);
+  const id = uuidValue(formData, "id", false);
   const amount = Number(textValue(formData, "amountRupiah"));
   const status = textValue(formData, "status");
   const periodMonth = textValue(formData, "periodMonth");
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(periodMonth)) throw new Error("Periode iuran tidak valid.");
   if (!Number.isInteger(amount) || amount < 1 || amount > 10_000_000) throw new Error("Nominal iuran rumah tidak valid.");
   if (!['paid', 'pending', 'waived'].includes(status)) throw new Error("Status iuran rumah tidak valid.");
+  const paidAtValue = textValue(formData, "paidAt", false);
+  if (status === "paid" && !paidAtValue) throw new Error("Tanggal pembayaran wajib diisi untuk status sudah dibayar.");
+  const paidAt = status === "paid" ? isoDateValue(paidAtValue, "Tanggal pembayaran") : null;
   const payload = {
-    category: textValue(formData, "category"),
+    category: textValue(formData, "category", true, 120),
     period: `${periodMonth}-01`,
     amount_rupiah: amount,
-    paid_at: status === "paid" ? textValue(formData, "paidAt") : null,
+    paid_at: paidAt,
     status,
   };
   if (id) {
@@ -528,8 +544,8 @@ export async function savePropertyContribution(formData: FormData) {
     if (error) throw new Error("Catatan iuran rumah tidak dapat diperbarui.");
     return success("Catatan iuran rumah telah diperbarui.");
   }
-  const unitCode = textValue(formData, "unitCode");
-  const { data: property, error: propertyError } = await supabase.from("properties").select("id").eq("unit_code", unitCode).maybeSingle();
+  const unitCodeInput = textValue(formData, "unitCode").toUpperCase();
+  const { data: property, error: propertyError } = await supabase.from("properties").select("id").eq("unit_code", unitCodeInput).maybeSingle();
   if (propertyError || !property) throw new Error("Unit rumah tidak ditemukan. Pilih unit dari daftar.");
   const { error } = await supabase.from("property_contributions").insert({ ...payload, property_id: property.id, source_reference: "manual" });
   if (error) throw new Error("Catatan iuran rumah tidak dapat disimpan. Periksa apakah periode yang sama sudah dicatat.");
@@ -611,7 +627,7 @@ export async function updateKasContributionStatus(formData: FormData) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error("Catatan iuran Kas tidak valid.");
   if (!['paid', 'pending', 'waived'].includes(status)) throw new Error("Status iuran Kas tidak valid.");
   const paidAt = status === "paid" ? textValue(formData, "paidAt") : null;
-  if (paidAt && !/^\d{4}-\d{2}-\d{2}$/.test(paidAt)) throw new Error("Tanggal pembayaran tidak valid.");
+  if (paidAt) isoDateValue(paidAt, "Tanggal pembayaran");
 
   const { data: contribution, error: lookupError } = await supabase.from("property_contributions").select("id,category").eq("id", id).maybeSingle();
   if (lookupError || !contribution || contribution.category !== KAS_OPAL_CONTRIBUTION_CATEGORY) throw new Error("Catatan Iuran Kas OPAL tidak ditemukan.");
@@ -623,7 +639,7 @@ export async function updateKasContributionStatus(formData: FormData) {
 
 export async function saveStaffProfile(formData: FormData) {
   const { supabase } = await requireAdmin();
-  const id = textValue(formData, "id", false);
+  const id = uuidValue(formData, "id", false);
   const sortOrder = Number(textValue(formData, "sortOrder"));
   if (!Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Urutan petugas tidak valid.");
   const existingResult = id
@@ -656,7 +672,7 @@ export async function saveStaffProfile(formData: FormData) {
 
 export async function saveHomeSpec(formData: FormData) {
   const { supabase } = await requireAdmin();
-  const id = textValue(formData, "id", false);
+  const id = uuidValue(formData, "id", false);
   const category = textValue(formData, "category");
   const sortOrder = Number(textValue(formData, "sortOrder"));
   if (!["Keramik", "Cat", "Kontak"].includes(category) || !Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Spesifikasi rumah tidak valid.");
@@ -669,7 +685,7 @@ export async function saveHomeSpec(formData: FormData) {
 
 export async function saveFloorPlanAsset(formData: FormData) {
   const { supabase } = await requireAdmin();
-  const id = textValue(formData, "id", false);
+  const id = uuidValue(formData, "id", false);
   const file = formData.get("file");
   const sortOrder = Number(textValue(formData, "sortOrder"));
   if (!Number.isInteger(sortOrder) || sortOrder < 1) throw new Error("Urutan denah tidak valid.");

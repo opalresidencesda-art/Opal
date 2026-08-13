@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { PlayCircle } from "@phosphor-icons/react/dist/ssr";
 import { FeeList } from "@/components/fee-list";
 import { MarkdownContent } from "@/components/markdown-content";
 import type { FeeSchedule, GuideSection } from "@/lib/content";
@@ -23,29 +24,33 @@ const guideImages: Record<string, { src: string; alt: string }> = {
 };
 
 const stickerVideos = [
-  { id: "qtyrlcLybZg", title: "Tutorial pemasangan stiker mobil OPAL", label: "Stiker mobil" },
-  { id: "9blRp958AXs", title: "Tutorial pemasangan stiker motor OPAL", label: "Stiker motor" },
+  { id: "qtyrlcLybZg", title: "Tutorial pemasangan stiker mobil OPAL", label: "Stiker mobil", thumbnail: "/images/guide/stiker-mobil-video.jpg" },
+  { id: "9blRp958AXs", title: "Tutorial pemasangan stiker motor OPAL", label: "Stiker motor", thumbnail: "/images/guide/stiker-motor-video.jpg" },
 ];
 
 function StickerTutorials() {
   return (
     <section className="mt-12 border-t border-line pt-9" aria-labelledby="guide-sticker-tutorial-title">
       <h3 id="guide-sticker-tutorial-title" className="text-[1.35rem] font-extrabold tracking-[-0.04em] text-ink">Video cara pemasangan</h3>
-      <p className="mt-2 max-w-2xl text-[0.92rem] leading-7 text-ink-muted">Pilih tutorial sesuai kendaraan. Video resmi OPAL dapat diputar langsung di halaman ini.</p>
+      <p className="mt-2 max-w-2xl text-[0.92rem] leading-7 text-ink-muted">Pilih tutorial sesuai kendaraan. Tekan gambar untuk membuka video resmi OPAL.</p>
       <div className="mt-6 grid gap-7 xl:grid-cols-2">
         {stickerVideos.map((video) => (
           <figure key={video.id}>
-            <div className="aspect-video overflow-hidden bg-action">
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/${video.id}`}
-                title={video.title}
-                className="size-full border-0"
-                loading="lazy"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allowFullScreen
-              />
-            </div>
+            <a
+              href={`https://www.youtube.com/watch?v=${video.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="group relative block overflow-hidden bg-action focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand focus-visible:ring-offset-4"
+              aria-label={`${video.title}. Buka di YouTube`}
+            >
+              <Image src={video.thumbnail} alt={`Thumbnail ${video.title}`} width={640} height={360} className="aspect-video w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
+              <span className="absolute inset-0 grid place-items-center bg-action/20 transition group-hover:bg-action/35">
+                <span className="inline-flex items-center gap-2 rounded-full bg-surface-raised px-4 py-3 text-sm font-extrabold text-ink shadow-[0_10px_24px_rgba(3,25,21,0.22)]">
+                  <PlayCircle size={25} weight="fill" className="text-danger" aria-hidden="true" />
+                  Tonton di YouTube
+                </span>
+              </span>
+            </a>
             <figcaption className="mt-3 text-[0.86rem] font-extrabold text-ink">{video.label}</figcaption>
           </figure>
         ))}

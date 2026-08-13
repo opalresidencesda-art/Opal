@@ -83,7 +83,7 @@ export function HomeAnnouncementCarousel({ announcements, id = "pengumuman" }: {
               <h2 className="mt-3 max-w-3xl text-[1.28rem] font-extrabold leading-[1.12] tracking-[-0.04em] text-ink md:text-[1.55rem] md:text-on-action">
                 {announcement.title}
               </h2>
-              <p className="mt-3 max-w-3xl text-[0.82rem] leading-6 text-ink-muted md:text-on-action/76">
+              <p className="mt-3 max-w-3xl whitespace-pre-line text-[0.82rem] leading-6 text-ink-muted md:text-on-action/76">
                 {announcement.body}
               </p>
             </div>

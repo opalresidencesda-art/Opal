@@ -35,6 +35,7 @@ describe("announcementImageUrl", () => {
     expect(announcementImageUrl({ id: "announcement-id", imagePath: "announcements/example.jpg" })).toBe("/api/announcement-image/announcement-id");
     expect(announcementImageUrl({ id: "announcement-id", imagePath: null })).toBeNull();
     expect(announcementImageUrl({ imagePath: "announcements/example.jpg" })).toBeNull();
+    expect(announcementImageUrl({ imageUrl: "/images/announcements/17-agustus-2026.webp" })).toBe("/images/announcements/17-agustus-2026.webp");
   });
 });
 

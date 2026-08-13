@@ -147,6 +147,8 @@ test("pencarian Beranda membawa warga ke informasi portal yang sesuai", async ({
 test("Beranda mempertahankan pengumuman dan tidak overflow di kedua tema", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("[data-home-portal-search-ready='true']")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "81 TAHUN KEMERDEKAAN RI" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Poster acara Merdeka Bersatu Gemilang di Delima, Agustus 2026" })).toBeVisible();
   const pauseButton = page.getByRole("button", { name: "Jeda pengumuman otomatis" });
   if (await pauseButton.count()) {
     await pauseButton.click();
@@ -244,8 +246,9 @@ test("panduan menampilkan semua topik terbuka dengan daftar isi", async ({ page 
   await expect(page.getByRole("heading", { name: "Iuran Pondok Tjandra", exact: true })).toHaveCount(1);
   await expect(page.getByRole("heading", { name: "Iuran Kas OPAL", exact: true })).toHaveCount(1);
   await expect(page.locator('[data-guide-fee-card="true"]')).toHaveCount(2);
-  await expect(page.locator('#stiker-kendaraan iframe[title="Tutorial pemasangan stiker mobil OPAL"]')).toBeVisible();
-  await expect(page.locator('#stiker-kendaraan iframe[title="Tutorial pemasangan stiker motor OPAL"]')).toBeVisible();
+  await expect(page.locator('#stiker-kendaraan a[href="https://www.youtube.com/watch?v=qtyrlcLybZg"]')).toBeVisible();
+  await expect(page.locator('#stiker-kendaraan a[href="https://www.youtube.com/watch?v=9blRp958AXs"]')).toBeVisible();
+  await expect(page.locator('#stiker-kendaraan iframe')).toHaveCount(0);
   await expect(page.getByText("Arsip QR panduan lama")).toHaveCount(0);
   await expect(page.locator("#parkir > div h2")).toHaveText("Parkir mobil");
   await expect(page.locator("#parkir .guide-prose h3").first()).toHaveText("Mobil pertama");

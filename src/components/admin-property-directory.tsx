@@ -104,18 +104,25 @@ function PropertyLinkRow({ property }: { property: PropertyLink }) {
   const linkLabel = state === "active" ? "Tautan aktif" : state === "revoked" ? "Tautan dicabut" : "Belum ada tautan";
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
+  const [generatedUrl, setGeneratedUrl] = useState("");
   async function copyPrivateLink() {
     setMessage("");
     startTransition(async () => {
       try {
         const { url } = await createPropertyMapLink(property.id);
-        await navigator.clipboard.writeText(url);
-        setMessage("Tautan privat baru disalin. Tidak ditampilkan di URL admin.");
+        setGeneratedUrl(url);
+        try {
+          if (!navigator.clipboard?.writeText) throw new Error("Clipboard tidak tersedia");
+          await navigator.clipboard.writeText(url);
+          setMessage("Tautan privat baru disalin. Simpan untuk dibagikan kepada warga.");
+        } catch {
+          setMessage("Tautan sudah dibuat. Salin dari kolom di bawah karena clipboard browser tidak tersedia.");
+        }
         router.refresh();
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Tautan privat belum dapat dibuat.");
       }
     });
   }
-  return <article className="border border-line bg-surface-raised p-5"><div className="flex items-start justify-between gap-3"><div><p className="font-extrabold text-ink">{property.unit_code}</p><p className="mt-1 text-sm text-ink-muted">{property.occupancy_status ? occupancyLabels[property.occupancy_status] : "Status hunian belum disahkan"}</p></div><Pill label={linkLabel} tone={state === "active" ? "good" : "muted"} /></div><div className="mt-4 flex flex-wrap gap-2"><Pill label={data.label} tone={data.tone} /><Pill label={contribution.label} tone={contribution.tone} /></div><p className="mt-3 text-sm leading-6 text-ink-muted">{data.detail}</p><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => void copyPrivateLink()} disabled={isPending} className="min-h-10 rounded-full bg-action px-3.5 text-xs font-bold text-on-action hover:bg-brand hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60">{isPending ? "Menyiapkan..." : state === "active" ? "Putar & salin tautan" : "Buat & salin tautan"}</button>{state === "active" ? <form action={revokePropertyLink}><input type="hidden" name="id" value={property.id} /><button className="min-h-10 rounded-full border border-line px-3.5 text-xs font-bold text-ink hover:border-danger hover:text-danger">Cabut</button></form> : null}</div>{message ? <p className="mt-3 text-xs font-bold leading-5 text-brand-deep" role="status">{message}</p> : null}</article>;
+  return <article className="border border-line bg-surface-raised p-5"><div className="flex items-start justify-between gap-3"><div><p className="font-extrabold text-ink">{property.unit_code}</p><p className="mt-1 text-sm text-ink-muted">{property.occupancy_status ? occupancyLabels[property.occupancy_status] : "Status hunian belum disahkan"}</p></div><Pill label={linkLabel} tone={state === "active" ? "good" : "muted"} /></div><div className="mt-4 flex flex-wrap gap-2"><Pill label={data.label} tone={data.tone} /><Pill label={contribution.label} tone={contribution.tone} /></div><p className="mt-3 text-sm leading-6 text-ink-muted">{data.detail}</p><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => void copyPrivateLink()} disabled={isPending} className="min-h-10 rounded-full bg-action px-3.5 text-xs font-bold text-on-action hover:bg-brand hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60">{isPending ? "Menyiapkan..." : state === "active" ? "Putar & salin tautan" : "Buat & salin tautan"}</button>{state === "active" ? <form action={revokePropertyLink}><input type="hidden" name="id" value={property.id} /><button className="min-h-10 rounded-full border border-line px-3.5 text-xs font-bold text-ink hover:border-danger hover:text-danger">Cabut</button></form> : null}</div>{generatedUrl ? <label className="mt-4 block text-xs font-extrabold text-ink"><span className="block">Tautan privat baru</span><input readOnly value={generatedUrl} onFocus={(event) => event.currentTarget.select()} className="mt-2 min-h-10 w-full rounded-xl border border-line bg-surface px-3 text-xs font-medium text-ink outline-none focus:border-brand focus:ring-3 focus:ring-brand/15" aria-label={`Tautan privat ${property.unit_code}`} /></label> : null}{message ? <p className="mt-3 text-xs font-bold leading-5 text-brand-deep" role="status">{message}</p> : null}</article>;
 }

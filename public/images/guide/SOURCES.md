@@ -10,3 +10,5 @@ Sumber PDF: https://drive.google.com/file/d/1xR1jRrubSRYd_l92iWl2xtygvnchcdOK/vi
 QR lama pada halaman stiker sudah diganti pemutar video langsung:
 - Mobil: https://www.youtube.com/watch?v=qtyrlcLybZg
 - Motor: https://www.youtube.com/watch?v=9blRp958AXs
+
+Thumbnail lokal diambil dari halaman video resmi tersebut agar kartu panduan tetap terlihat meskipun YouTube diblokir di dalam iframe.

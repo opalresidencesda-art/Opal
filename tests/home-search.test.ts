@@ -24,9 +24,10 @@ describe("home search", () => {
   });
 
   it("includes published announcements and keeps duplicate services out of the index", () => {
-    expect(searchHomeContent(index, "format website")[0]).toMatchObject({
+    expect(searchHomeContent(index, "Merdeka Bersatu")[0]).toMatchObject({
       kind: "Pengumuman",
       href: "#pengumuman",
+      title: "81 TAHUN KEMERDEKAAN RI",
     });
     expect(index.filter((item) => item.title === "Kas OPAL")).toHaveLength(1);
   });

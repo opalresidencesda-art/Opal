@@ -17,9 +17,11 @@ export type Announcement = {
   pinned: boolean;
   imagePath?: string | null;
   imageAlt?: string | null;
+  imageUrl?: string | null;
 };
 
-export function announcementImageUrl(announcement: Pick<Announcement, "id" | "imagePath">) {
+export function announcementImageUrl(announcement: Pick<Announcement, "id" | "imagePath" | "imageUrl">) {
+  if (announcement.imageUrl) return announcement.imageUrl;
   return announcement.id && announcement.imagePath ? `/api/announcement-image/${announcement.id}` : null;
 }
 
@@ -80,10 +82,41 @@ export const defaultFees: FeeSchedule[] = [
 
 export const defaultAnnouncements: Announcement[] = [
   {
-    title: "Panduan warga kini tersedia dalam format website",
-    body: "Aturan parkir, renovasi, stiker kendaraan, dan sampah dapat dibaca lebih nyaman dari ponsel.",
-    publishedAt: "2026-07-18",
+    title: "81 TAHUN KEMERDEKAAN RI",
+    body: `🇲🇨🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩
+
+GAME 17AN
+🗓️ Sabtu, 8 Agustus 2026
+🕒 15.00 WIB
+🛝 Taman Bermain Delima
+👕 Dresscode Merah Putih 🇲🇨
+
+3K JALAN SEHAT & SENAM
+🗓️ Minggu, 9 Agustus 2026
+🕒 05.30 WIB
+🏁 Taman Bermain Delima
+👕 Dresscode Merah Putih 🇲🇨
+
+MALAM SYUKURAN 17 AGUSTUS
+🗓️ Minggu, 16 Agustus 2026
+🕒 17.30 WIB
+📍 Taman Bermain Delima
+👕 Dresscode Merah Putih 🇲🇨
+
+✅ Permainan untuk anak dan dewasa berhadiah
+✅ Seru-seruan 3K Jalan Sehat & Senam bareng
+✅ Tiap KK mendapat 1 kupon undian Jalan Sehat dan 1 kupon undian Malam Syukuran
+✅ Hadiah untuk kostum terheboh Jalan Sehat
+✅ Kupon Makanan Bergizi Gratis di Malam Syukuran
+✅ Bazar makanan & minuman enak
+✅ Doorprize puluhan juta rupiah
+
+MERDEKA BERSATU GEMILANG
+🇲🇨🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩`,
+    publishedAt: "2026-08-08",
     pinned: true,
+    imageUrl: "/images/announcements/17-agustus-2026.webp",
+    imageAlt: "Poster acara Merdeka Bersatu Gemilang di Delima, Agustus 2026",
   },
 ];
 

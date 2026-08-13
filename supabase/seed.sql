@@ -91,9 +91,41 @@ Stiker dapat diambil di Pos Satpam OPAL dengan mengisi merek, tipe, dan pelat no
 Bila ditemukan sampah yang tidak mematuhi aturan, petugas berhak untuk tidak mengambil sampah dari rumah yang melanggar.$$ , 5, true)
 on conflict (slug) do update set title = excluded.title, summary = excluded.summary, body_markdown = excluded.body_markdown, sort_order = excluded.sort_order, published = excluded.published;
 
-insert into public.announcements (title, body, published_at, pinned, published)
-select 'Panduan warga kini tersedia dalam format website', 'Aturan parkir, renovasi, stiker kendaraan, dan sampah dapat dibaca lebih nyaman dari ponsel.', '2026-07-18', true, true
-where not exists (select 1 from public.announcements where title = 'Panduan warga kini tersedia dalam format website');
+delete from public.announcements
+where title = 'Panduan warga kini tersedia dalam format website';
+
+insert into public.announcements (title, body, published_at, pinned, published, image_alt)
+select '81 TAHUN KEMERDEKAAN RI', $$🇲🇨🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩
+
+GAME 17AN
+🗓️ Sabtu, 8 Agustus 2026
+🕒 15.00 WIB
+🛝 Taman Bermain Delima
+👕 Dresscode Merah Putih 🇲🇨
+
+3K JALAN SEHAT & SENAM
+🗓️ Minggu, 9 Agustus 2026
+🕒 05.30 WIB
+🏁 Taman Bermain Delima
+👕 Dresscode Merah Putih 🇲🇨
+
+MALAM SYUKURAN 17 AGUSTUS
+🗓️ Minggu, 16 Agustus 2026
+🕒 17.30 WIB
+📍 Taman Bermain Delima
+👕 Dresscode Merah Putih 🇲🇨
+
+✅ Permainan untuk anak dan dewasa berhadiah
+✅ Seru-seruan 3K Jalan Sehat & Senam bareng
+✅ Tiap KK mendapat 1 kupon undian Jalan Sehat dan 1 kupon undian Malam Syukuran
+✅ Hadiah untuk kostum terheboh Jalan Sehat
+✅ Kupon Makanan Bergizi Gratis di Malam Syukuran
+✅ Bazar makanan & minuman enak
+✅ Doorprize puluhan juta rupiah
+
+MERDEKA BERSATU GEMILANG
+🇲🇨🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩$$, '2026-08-08', true, true, 'Poster acara Merdeka Bersatu Gemilang di Delima, Agustus 2026'
+where not exists (select 1 from public.announcements where title = '81 TAHUN KEMERDEKAAN RI');
 
 delete from public.resources
 where title = 'Petugas Pos dan Taman'
