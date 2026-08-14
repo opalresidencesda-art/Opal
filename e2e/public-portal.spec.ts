@@ -144,18 +144,15 @@ test("pencarian Beranda membawa warga ke informasi portal yang sesuai", async ({
   await expect(page).toHaveURL(/\/petugas$/);
 });
 
-test("Beranda mempertahankan pengumuman dan tidak overflow di kedua tema", async ({ page }) => {
+test("Beranda menampilkan feed pengumuman yang stabil dan tidak overflow", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("[data-home-portal-search-ready='true']")).toBeVisible();
   await expect(page.getByRole("heading", { name: "81 TAHUN KEMERDEKAAN RI" })).toBeVisible();
   await expect(page.getByRole("img", { name: "Poster acara Merdeka Bersatu Gemilang di Delima, Agustus 2026" })).toBeVisible();
-  const pauseButton = page.getByRole("button", { name: "Jeda pengumuman otomatis" });
-  if (await pauseButton.count()) {
-    await pauseButton.click();
-    await expect(page.getByRole("button", { name: "Putar pengumuman otomatis" })).toBeVisible();
-  } else {
-    await expect(page.getByLabel("Pengumuman warga")).toBeVisible();
-  }
+  await expect(page.getByRole("heading", { name: "Pengumuman warga", level: 2 })).toBeVisible();
+  await expect(page.getByRole("button", { name: /pengumuman otomatis/i })).toHaveCount(0);
+  await expect(page.locator('[aria-roledescription="carousel"]')).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Baca pengumuman/ }).first()).toHaveAttribute("href", /\/pengumuman\//);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.getByRole("button", { name: "Ganti tema warna" }).click();

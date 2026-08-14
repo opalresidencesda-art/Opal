@@ -62,7 +62,7 @@ export function buildHomeSearchIndex(data: PortalData): HomeSearchItem[] {
     kind: "Pengumuman" as const,
     title: announcement.title,
     description: announcement.body,
-    href: "#pengumuman",
+    href: announcement.id ? `/pengumuman/${announcement.id}` : "#pengumuman",
   }));
 
   const publishedResources = data.resources.map((resource) => ({

@@ -122,3 +122,11 @@ export async function getPortalData(): Promise<PortalData> {
     guideSections: sectionsResult.error ? [] : sortGuideSections((sectionsResult.data as DatabaseGuideSection[]).map(mapGuideSection)),
   };
 }
+
+export async function getPublishedAnnouncement(id: string): Promise<Announcement | null> {
+  const supabase = publicClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase.from("announcements").select("*").eq("id", id).eq("published", true).maybeSingle();
+  if (error || !data) return null;
+  return mapAnnouncement(data as DatabaseAnnouncement);
+}

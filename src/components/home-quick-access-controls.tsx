@@ -60,10 +60,10 @@ export function HomeQuickAccessControls({
 
   return (
     <aside
-      className="border-t border-line bg-surface-raised px-5 py-3 text-ink sm:px-7 sm:py-4 lg:border-t-0 lg:border-l"
+      className="bg-surface-raised px-5 py-3 text-ink sm:px-7 sm:py-4"
       aria-label="Pintasan layanan warga"
     >
-      <nav className="divide-y divide-line" aria-label="Pilih layanan warga">
+      <nav className="divide-y divide-line lg:grid lg:grid-cols-4 lg:divide-x lg:divide-y-0" aria-label="Pilih layanan warga">
         {quickAccessCategories.map((category, index) => {
           const Icon = quickAccessIcons[category.id];
           const active = category.id === activeId;
@@ -73,7 +73,7 @@ export function HomeQuickAccessControls({
               key={category.id}
               href="#akses-cepat"
               aria-current={active ? "true" : undefined}
-              className={`group grid min-h-[4.25rem] grid-cols-[1.85rem_minmax(0,1fr)_auto] items-center gap-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset ${
+              className={`group grid min-h-[4.25rem] grid-cols-[1.85rem_minmax(0,1fr)_auto] items-center gap-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset lg:px-4 ${
                 active ? "text-brand-deep" : "text-ink"
               }`}
               onClick={(event) => {

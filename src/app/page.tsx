@@ -49,15 +49,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
               <HomePortalSearch index={buildHomeSearchIndex(data)} />
             </div>
 
-            <div className="mx-auto mt-8 grid max-w-5xl overflow-hidden rounded-[1.5rem] border border-line bg-surface-raised shadow-[0_12px_30px_rgba(2,20,16,0.14)] lg:bg-action lg:shadow-[0_18px_50px_rgba(2,20,16,0.24)] lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
-              <div className="min-w-0">
-                <HomeAnnouncementCarousel announcements={data.announcements} />
-              </div>
+            <div className="mx-auto mt-8 max-w-5xl overflow-hidden border border-line bg-surface-raised shadow-[0_18px_50px_rgba(2,20,16,0.22)]">
               <HomeQuickAccessControls initialActiveId={activeQuickAccessId} />
             </div>
           </div>
         </div>
       </section>
+
+      <PublicReveal>
+        <HomeAnnouncementCarousel announcements={data.announcements} />
+      </PublicReveal>
 
       <PublicReveal>
         <section id="akses-cepat" className="mx-auto max-w-[1440px] px-5 py-20 sm:px-8 sm:py-24 lg:px-10 lg:py-28" aria-labelledby="home-services-title">
