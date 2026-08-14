@@ -18,7 +18,7 @@ export default async function AnnouncementsPage() {
         <h1 className="public-display mt-4 text-4xl font-bold leading-[0.98] tracking-[-0.06em] text-ink sm:text-6xl">Pengumuman warga</h1>
         <p className="mt-5 max-w-2xl text-base leading-7 text-ink-muted">Kegiatan, informasi lingkungan, dan kabar terbaru dari pengurus RT OPAL.</p>
       </header>
-      {announcements.length ? <div className="mt-10 grid gap-5 lg:grid-cols-2">{announcements.map((announcement) => <AnnouncementPreview key={announcement.id ?? announcement.title} announcement={announcement} featured={false} />)}</div> : <p className="mt-10 border border-dashed border-line px-6 py-8 text-sm leading-7 text-ink-muted">Belum ada pengumuman baru.</p>}
+      {announcements.length ? <div className="mt-10 grid gap-x-10 lg:grid-cols-2">{announcements.map((announcement, index) => <AnnouncementPreview key={announcement.id ?? announcement.title} announcement={announcement} compact index={index + 1} />)}</div> : <p className="mt-10 border border-dashed border-line px-6 py-8 text-sm leading-7 text-ink-muted">Belum ada pengumuman baru.</p>}
     </main>
   );
 }
