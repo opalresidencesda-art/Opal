@@ -9,7 +9,6 @@ import Link from "next/link";
 import { FeeList } from "@/components/fee-list";
 import { HomeAnnouncementCarousel } from "@/components/home-announcement-carousel";
 import { HomePortalSearch } from "@/components/home-portal-search";
-import { HomeQuickAccess } from "@/components/home-quick-access";
 import { HomeQuickAccessControls } from "@/components/home-quick-access-controls";
 import { PublicHashScroll } from "@/components/public-hash-scroll";
 import { PublicReveal } from "@/components/public-reveal";
@@ -58,14 +57,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
 
       <PublicReveal>
         <HomeAnnouncementCarousel announcements={data.announcements} />
-      </PublicReveal>
-
-      <PublicReveal>
-        <section id="akses-cepat" className="mx-auto max-w-[1440px] px-5 py-20 sm:px-8 sm:py-24 lg:px-10 lg:py-28" aria-labelledby="home-services-title">
-          <h2 id="home-services-title" tabIndex={-1} className="hash-scroll-heading public-kicker">Akses cepat warga</h2>
-
-          <HomeQuickAccess initialActiveId={activeQuickAccessId} />
-        </section>
       </PublicReveal>
 
       <PublicReveal>

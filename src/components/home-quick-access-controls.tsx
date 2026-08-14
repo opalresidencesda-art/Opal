@@ -7,11 +7,12 @@ import {
   UsersThree,
   Wallet,
 } from "@phosphor-icons/react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
   quickAccessCategories,
   type QuickAccessCategory,
 } from "@/lib/quick-access";
+import { QuickAccessPanel } from "@/components/home-quick-access";
 
 const quickAccessIcons = {
   surat: FileText,
@@ -24,23 +25,11 @@ type HomeQuickAccessControlsProps = {
   initialActiveId?: QuickAccessCategory["id"];
 };
 
-function scrollToQuickAccess(categoryId: QuickAccessCategory["id"]) {
-  const target = document.getElementById("akses-cepat");
+function updateQuickAccessUrl(categoryId: QuickAccessCategory["id"]) {
   const url = new URL(window.location.href);
   url.searchParams.set("akses", categoryId);
   url.hash = "akses-cepat";
   window.history.replaceState(null, "", url);
-
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  target?.scrollIntoView({
-    behavior: reducedMotion ? "auto" : "smooth",
-    block: "start",
-  });
-
-  window.setTimeout(
-    () => document.getElementById("home-services-title")?.focus({ preventScroll: true }),
-    reducedMotion ? 0 : 280,
-  );
 }
 
 export function HomeQuickAccessControls({
@@ -50,16 +39,17 @@ export function HomeQuickAccessControls({
 
   function selectCategory(categoryId: QuickAccessCategory["id"]) {
     setActiveId(categoryId);
-    window.dispatchEvent(
-      new CustomEvent<QuickAccessCategory["id"]>("opal-quick-access-select", {
-        detail: categoryId,
-      }),
-    );
-    scrollToQuickAccess(categoryId);
+    updateQuickAccessUrl(categoryId);
+    window.setTimeout(() => {
+      const heading = Array.from(document.querySelectorAll<HTMLElement>('[data-quick-access-heading="true"]')).find((element) => element.getClientRects().length > 0);
+      heading?.focus({ preventScroll: true });
+    }, 0);
   }
 
   return (
     <aside
+      id="akses-cepat"
+      tabIndex={-1}
       className="bg-surface-raised px-5 py-3 text-ink sm:px-7 sm:py-4"
       aria-label="Pintasan layanan warga"
     >
@@ -69,8 +59,8 @@ export function HomeQuickAccessControls({
           const active = category.id === activeId;
 
           return (
-            <a
-              key={category.id}
+            <Fragment key={category.id}>
+              <a
               href="#akses-cepat"
               aria-current={active ? "true" : undefined}
               className={`group grid min-h-[4.25rem] grid-cols-[1.85rem_minmax(0,1fr)_auto] items-center gap-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset lg:px-4 ${
@@ -103,15 +93,20 @@ export function HomeQuickAccessControls({
                 </span>
               </span>
               <ArrowRight
-                className="shrink-0 text-ink-faint transition-transform group-hover:translate-x-1 group-hover:text-brand"
+                className={`shrink-0 text-ink-faint transition-transform duration-200 group-hover:text-brand ${active ? "rotate-90 text-brand" : "group-hover:translate-x-1"}`}
                 size={19}
                 weight="bold"
                 aria-hidden="true"
               />
-            </a>
+              </a>
+              {active ? <div data-quick-access-panel="true" className="lg:hidden"><QuickAccessPanel categoryId={activeId} headingId={`hero-quick-access-${activeId}-mobile-title`} /></div> : null}
+            </Fragment>
           );
         })}
       </nav>
+      <div data-quick-access-panel="true" className="mt-3 hidden border-t border-line pt-3 lg:block">
+        <QuickAccessPanel categoryId={activeId} headingId={`hero-quick-access-${activeId}-desktop-title`} />
+      </div>
     </aside>
   );
 }

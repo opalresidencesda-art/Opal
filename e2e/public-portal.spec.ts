@@ -4,8 +4,8 @@ import AxeBuilder from "@axe-core/playwright";
 test("layanan native dapat dibuka tanpa tautan Google", async ({ page }) => {
   await page.goto("/layanan");
   await expect(page).toHaveURL(/\/#akses-cepat$/);
-  await expect(page.getByRole("heading", { name: "Akses cepat warga" })).toBeVisible();
-  await expect(page.locator('#quick-access-panel a[href="/surat/domisili"]')).toBeVisible();
+  await expect(page.getByLabel("Pintasan layanan warga")).toBeVisible();
+  await expect(page.locator('[data-quick-access-panel]:visible a[href="/surat/domisili"]')).toBeVisible();
 });
 
 test("pintasan hero memilih layanan warga yang sesuai", async ({ page }) => {
@@ -23,7 +23,7 @@ test("pintasan hero memilih layanan warga yang sesuai", async ({ page }) => {
   await expect(page.getByText("Ketik apa yang anda cari di sini.")).toBeVisible();
 
   const heroShortcuts = page.getByLabel("Pintasan layanan warga");
-  const panel = page.locator("#quick-access-panel");
+  const panel = page.locator('[data-quick-access-panel]:visible');
 
   for (const [label, id, expectedHref, expectedTitle] of expectedPanels) {
     const navigationCount = await page.evaluate(
@@ -152,7 +152,13 @@ test("Beranda menampilkan feed pengumuman yang stabil dan tidak overflow", async
   await expect(page.getByRole("heading", { name: "Pengumuman warga", level: 2 })).toBeVisible();
   await expect(page.getByRole("button", { name: /pengumuman otomatis/i })).toHaveCount(0);
   await expect(page.locator('[aria-roledescription="carousel"]')).toHaveCount(0);
-  await expect(page.getByRole("link", { name: /Baca pengumuman/ }).first()).toHaveAttribute("href", /\/pengumuman\//);
+  const readAnnouncement = page.getByRole("button", { name: /Baca pengumuman/ }).first();
+  await expect(readAnnouncement).toBeVisible();
+  await readAnnouncement.click();
+  await expect(page.getByRole("dialog", { name: "81 TAHUN KEMERDEKAAN RI" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Tutup pengumuman" })).toBeVisible();
+  await page.getByRole("button", { name: "Tutup pengumuman" }).click();
+  await expect(page.getByRole("dialog", { name: "81 TAHUN KEMERDEKAAN RI" })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.getByRole("button", { name: "Ganti tema warna" }).click();
@@ -165,9 +171,18 @@ test("Beranda tetap rapi pada viewport ponsel sempit", async ({ page }) => {
     await page.goto("/?akses=surat#akses-cepat");
     await expect(page.getByRole("heading", { name: "Selamat Datang Warga Opal!" })).toBeVisible();
     await expect(page.getByLabel("Pintasan layanan warga").getByRole("link", { name: "Surat Menyurat", exact: true })).toBeVisible();
-    await expect(page.locator('#quick-access-panel a[href="/surat/pindah-rumah"]')).toBeVisible();
+    await expect(page.locator('[data-quick-access-panel]:visible a[href="/surat/pindah-rumah"]')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   }
+});
+
+test("Pintasan hero membuka layanan tepat di bawah kategori aktif", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Panduan Harmonis Opal", exact: true }).click();
+  await expect(page).toHaveURL(/\?akses=panduan#akses-cepat$/);
+  const panel = page.locator('[data-quick-access-panel]:visible');
+  await expect(panel.getByRole("heading", { name: "Panduan Harmonis Opal" })).toBeVisible();
+  await expect(panel.getByRole("link", { name: /Panduan Harmonis/ })).toBeVisible();
 });
 
 test("placeholder pencarian Beranda tetap terbaca di kontrol terang pada mobile dan kedua tema", async ({ page }) => {

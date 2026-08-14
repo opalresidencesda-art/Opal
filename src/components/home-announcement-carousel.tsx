@@ -1,6 +1,9 @@
-import { ArrowUpRight, CalendarBlank, MapPin } from "@phosphor-icons/react/dist/ssr";
+"use client";
+
+import { ArrowUpRight, CalendarBlank, MapPin, X } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { announcementImageUrl, type Announcement } from "@/lib/content";
 import { formatDate } from "@/lib/format";
 
@@ -23,12 +26,36 @@ function announcementMeta(announcement: Announcement) {
 }
 
 export function AnnouncementPreview({ announcement, featured = false }: { announcement: Announcement; featured?: boolean }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const imageUrl = announcementImageUrl(announcement);
   const meta = announcementMeta(announcement);
-  const detailHref = announcement.id ? `/pengumuman/${announcement.id}` : "#pengumuman";
+  const dialogTitleId = `announcement-dialog-${announcement.id ?? "preview"}`;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKeyDown);
+    closeRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen]);
+
+  function closeDialog() {
+    setIsOpen(false);
+    window.setTimeout(() => triggerRef.current?.focus(), 0);
+  }
 
   return (
-    <article className={`group overflow-hidden border border-line bg-surface-raised ${featured ? "grid md:grid-cols-[minmax(0,1fr)_minmax(17rem,0.72fr)]" : "flex flex-col"}`}>
+    <>
+      <article className={`group overflow-hidden border border-line bg-surface-raised ${featured ? "grid md:grid-cols-[minmax(0,1fr)_minmax(17rem,0.72fr)]" : "flex flex-col"}`}>
       {featured && imageUrl ? (
         <figure className="relative order-2 min-h-64 overflow-hidden border-t border-line bg-surface-subtle md:order-2 md:min-h-full md:border-l md:border-t-0">
           <Image src={imageUrl} alt={announcement.imageAlt || announcement.title} fill sizes="(min-width: 768px) 35vw, 100vw" unoptimized className="object-cover transition duration-500 group-hover:scale-[1.025]" />
@@ -54,11 +81,35 @@ export function AnnouncementPreview({ announcement, featured = false }: { announ
             <div><dt className="sr-only">Lokasi</dt><dd className="font-bold text-ink">{meta.location}</dd></div>
           </div>
         </dl>
-        <Link href={detailHref} className="mt-7 inline-flex min-h-11 w-fit items-center gap-2 border-b-2 border-brand pb-1 text-sm font-extrabold text-brand-deep transition-colors hover:border-brand-deep hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-4">
+        <button ref={triggerRef} type="button" onClick={() => setIsOpen(true)} className="mt-7 inline-flex min-h-11 w-fit items-center gap-2 border-b-2 border-brand pb-1 text-left text-sm font-extrabold text-brand-deep transition-colors hover:border-brand-deep hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-4">
           Baca pengumuman <ArrowUpRight size={18} weight="bold" aria-hidden="true" />
-        </Link>
+        </button>
       </div>
-    </article>
+      </article>
+      {isOpen ? (
+      <div className="fixed inset-0 z-[80] flex items-end justify-center bg-action/65 p-3 sm:items-center sm:p-6" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby={dialogTitleId} className="flex max-h-[min(90dvh,52rem)] w-full max-w-3xl flex-col overflow-hidden border border-line bg-surface shadow-[0_24px_80px_rgba(3,23,19,0.3)]">
+          <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-7 sm:py-5">
+            <div className="min-w-0">
+              <p className="text-[0.68rem] font-extrabold uppercase tracking-[0.14em] text-brand-deep">{meta.category}</p>
+              <h2 id={dialogTitleId} className="mt-1.5 text-xl font-extrabold leading-tight tracking-[-0.04em] text-ink sm:text-2xl">{announcement.title}</h2>
+            </div>
+            <button ref={closeRef} type="button" onClick={closeDialog} aria-label="Tutup pengumuman" className="grid size-11 shrink-0 place-items-center border border-line text-ink-muted transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><X size={20} weight="bold" aria-hidden="true" /></button>
+          </header>
+          <div className="min-h-0 overflow-y-auto">
+            {imageUrl ? <figure className="relative aspect-[16/8] min-h-44 overflow-hidden border-b border-line bg-surface-subtle sm:min-h-64"><Image src={imageUrl} alt={announcement.imageAlt || announcement.title} fill sizes="(min-width: 768px) 768px, 100vw" unoptimized className="object-cover" /></figure> : null}
+            <div className="px-5 py-6 sm:px-7 sm:py-8">
+              <div className="grid gap-3 border-b border-line pb-5 text-sm sm:grid-cols-2">
+                <div className="flex items-center gap-2.5"><CalendarBlank className="text-brand" size={18} weight="fill" aria-hidden="true" /><time dateTime={announcement.publishedAt} className="font-bold text-ink">Diperbarui {formatDate(announcement.publishedAt)}</time></div>
+                <div className="flex items-center gap-2.5"><MapPin className="text-brand" size={18} weight="fill" aria-hidden="true" /><span className="font-bold text-ink">{meta.location}</span></div>
+              </div>
+              <p className="mt-6 whitespace-pre-line text-[0.95rem] leading-8 text-ink-muted sm:text-base">{announcement.body}</p>
+            </div>
+          </div>
+        </section>
+      </div>
+      ) : null}
+    </>
   );
 }
 

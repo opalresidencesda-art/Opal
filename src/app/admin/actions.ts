@@ -43,6 +43,8 @@ function isoDateValue(value: string, label: string) {
 
 function success(message: string, returnTo = "/admin") {
   revalidatePath("/");
+  revalidatePath("/pengumuman");
+  revalidatePath("/pengumuman/[id]", "page");
   revalidatePath("/panduan-harmonis");
   revalidatePath("/layanan");
   revalidatePath("/kas");
@@ -173,6 +175,21 @@ export async function saveAnnouncement(formData: FormData) {
   const oldImagePath = existingImagePath && existingImagePath !== imagePath && /^announcements\/[0-9a-f-]{36}\.(jpg|png|webp)$/i.test(existingImagePath) ? existingImagePath : null;
   if (oldImagePath) await createSupabaseAdminClient().storage.from("opal-assets").remove([oldImagePath]);
   success("Pengumuman telah disimpan.");
+}
+
+export async function deleteAnnouncement(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = uuidValue(formData, "id");
+  const { data: existing, error: lookupError } = await supabase.from("announcements").select("image_path").eq("id", id).maybeSingle();
+  if (lookupError || !existing) throw new Error("Pengumuman yang akan dihapus tidak ditemukan.");
+
+  const { error } = await supabase.from("announcements").delete().eq("id", id);
+  if (error) throw new Error("Pengumuman tidak dapat dihapus.");
+
+  if (typeof existing.image_path === "string" && /^announcements\/[0-9a-f-]{36}\.(jpg|png|webp)$/i.test(existing.image_path)) {
+    await createSupabaseAdminClient().storage.from("opal-assets").remove([existing.image_path]);
+  }
+  success("Pengumuman telah dihapus.");
 }
 
 export async function saveResource(formData: FormData) {
