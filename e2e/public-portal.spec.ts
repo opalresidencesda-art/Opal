@@ -328,6 +328,7 @@ test("halaman publik tidak memiliki pelanggaran axe kritis", async ({ page }) =>
 test("tema gelap halaman formulir tidak memiliki pelanggaran axe kritis", async ({ page }) => {
   await page.goto("/pendataan-warga");
   const initialTheme = await page.locator("html").getAttribute("data-theme");
+  expect(initialTheme).toBe("light");
   await page.getByRole("button", { name: "Ganti tema warna" }).click();
   await expect.poll(() => page.locator("html").getAttribute("data-theme")).not.toBe(initialTheme);
   const results = await new AxeBuilder({ page }).analyze();
