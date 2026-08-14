@@ -118,6 +118,18 @@ MERDEKA BERSATU GEMILANG
     imageUrl: "/images/announcements/17-agustus-2026.webp",
     imageAlt: "Poster acara Merdeka Bersatu Gemilang di Delima, Agustus 2026",
   },
+  {
+    title: "Ikuti Instagram Delima Residence",
+    body: `Delima Residence punya Instagram resmi.
+
+Ikuti @delimaresidencesda untuk melihat kabar kegiatan, informasi lingkungan, dan momen warga OPAL.
+
+https://www.instagram.com/delimaresidencesda/`,
+    publishedAt: "2026-08-14",
+    pinned: false,
+    imageUrl: "/images/announcements/delima-instagram-profile.png",
+    imageAlt: "Profil Instagram resmi Delima Residence dengan unggahan kegiatan warga.",
+  },
 ];
 
 export const defaultResources: Resource[] = [

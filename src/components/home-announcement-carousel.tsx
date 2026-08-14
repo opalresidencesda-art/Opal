@@ -25,6 +25,19 @@ function announcementMeta(announcement: Announcement) {
   return { category: "Informasi warga", dates: formatDate(announcement.publishedAt), location: "OPAL Residence" };
 }
 
+function announcementImageClass(announcement: Announcement) {
+  return announcement.title === "Ikuti Instagram Delima Residence" ? "object-contain bg-[#0d1114]" : "object-cover";
+}
+
+function renderAnnouncementBody(body: string) {
+  return body.split(/(https?:\/\/[^\s]+)/g).map((part, index) => {
+    if (/^https?:\/\//.test(part)) {
+      return <a key={`${part}-${index}`} href={part} target="_blank" rel="noreferrer" className="font-bold text-brand-deep underline decoration-brand/50 underline-offset-4 transition hover:text-brand">{part}</a>;
+    }
+    return <span key={`${part}-${index}`}>{part}</span>;
+  });
+}
+
 function AnnouncementDialog({ announcement, onClose, closeRef }: { announcement: Announcement; onClose: () => void; closeRef: React.RefObject<HTMLButtonElement | null> }) {
   const imageUrl = announcementImageUrl(announcement);
   const meta = announcementMeta(announcement);
@@ -41,13 +54,13 @@ function AnnouncementDialog({ announcement, onClose, closeRef }: { announcement:
           <button ref={closeRef} type="button" onClick={onClose} aria-label="Tutup pengumuman" className="grid size-11 shrink-0 place-items-center border border-line text-ink-muted transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><X size={20} weight="bold" aria-hidden="true" /></button>
         </header>
         <div className="min-h-0 overflow-y-auto">
-          {imageUrl ? <figure className="relative aspect-[16/8] min-h-44 overflow-hidden border-b border-line bg-surface-subtle sm:min-h-64"><Image src={imageUrl} alt={announcement.imageAlt || announcement.title} fill sizes="(min-width: 768px) 768px, 100vw" unoptimized className="object-cover" /></figure> : null}
+          {imageUrl ? <figure className="relative aspect-[16/8] min-h-44 overflow-hidden border-b border-line bg-surface-subtle sm:min-h-64"><Image src={imageUrl} alt={announcement.imageAlt || announcement.title} fill sizes="(min-width: 768px) 768px, 100vw" unoptimized className={announcementImageClass(announcement)} /></figure> : null}
           <div className="px-5 py-6 sm:px-7 sm:py-8">
             <div className="grid gap-3 border-b border-line pb-5 text-sm sm:grid-cols-2">
               <div className="flex items-center gap-2.5"><CalendarBlank className="text-brand" size={18} weight="fill" aria-hidden="true" /><span className="font-bold text-ink">{meta.dates}</span></div>
               <div className="flex items-center gap-2.5"><MapPin className="text-brand" size={18} weight="fill" aria-hidden="true" /><span className="font-bold text-ink">{meta.location}</span></div>
             </div>
-            <p className="mt-6 whitespace-pre-line text-[0.95rem] leading-8 text-ink-muted sm:text-base">{announcement.body}</p>
+            <p className="mt-6 whitespace-pre-line text-[0.95rem] leading-8 text-ink-muted sm:text-base">{renderAnnouncementBody(announcement.body)}</p>
           </div>
         </div>
       </section>
@@ -104,7 +117,7 @@ export function AnnouncementPreview({ announcement, featured = false, compact = 
   return (
     <>
       <article className={`group overflow-hidden border border-line bg-surface-raised ${featured ? "grid md:grid-cols-[minmax(0,1fr)_minmax(17rem,0.72fr)]" : "flex flex-col"}`}>
-        {featured && imageUrl ? <figure className="relative order-2 min-h-64 overflow-hidden border-t border-line bg-surface-subtle md:order-2 md:min-h-full md:border-l md:border-t-0"><Image src={imageUrl} alt={announcement.imageAlt || announcement.title} fill sizes="(min-width: 768px) 35vw, 100vw" unoptimized className="object-cover transition duration-500 group-hover:scale-[1.025]" /></figure> : null}
+        {featured && imageUrl ? <figure className="relative order-2 min-h-64 overflow-hidden border-t border-line bg-surface-subtle md:order-2 md:min-h-full md:border-l md:border-t-0"><Image src={imageUrl} alt={announcement.imageAlt || announcement.title} fill sizes="(min-width: 768px) 35vw, 100vw" unoptimized className={`${announcementImageClass(announcement)} transition duration-500 group-hover:scale-[1.025]`} /></figure> : null}
         <div className={`min-w-0 p-6 sm:p-8 ${featured ? "md:p-10" : "flex h-full flex-col"}`}>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.68rem] font-extrabold uppercase tracking-[0.14em] text-brand-deep"><span>{meta.category}</span><span className="text-ink-faint" aria-hidden="true">·</span><time dateTime={announcement.publishedAt}>{formatDate(announcement.publishedAt)}</time></div>
           <h3 className={`mt-5 max-w-2xl font-extrabold leading-[1.03] tracking-[-0.055em] text-ink ${featured ? "text-[2rem] sm:text-[2.7rem]" : "text-xl sm:text-2xl"}`}>{announcement.title}</h3>

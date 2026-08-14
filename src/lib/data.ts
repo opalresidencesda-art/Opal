@@ -67,8 +67,12 @@ function mapFee(fee: DatabaseFee): FeeSchedule {
 }
 
 function mapAnnouncement(item: DatabaseAnnouncement): Announcement {
-  const localFallbackImage = !item.image_path && item.title === "81 TAHUN KEMERDEKAAN RI"
-    ? "/images/announcements/17-agustus-2026.webp"
+  const localFallbackImage = !item.image_path
+    ? item.title === "81 TAHUN KEMERDEKAAN RI"
+      ? "/images/announcements/17-agustus-2026.webp"
+      : item.title === "Ikuti Instagram Delima Residence"
+        ? "/images/announcements/delima-instagram-profile.png"
+        : null
     : null;
   return {
     id: item.id,

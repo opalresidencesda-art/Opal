@@ -127,6 +127,14 @@ MERDEKA BERSATU GEMILANG
 🇲🇨🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩🇮🇩$$, '2026-08-08', true, true, 'Poster acara Merdeka Bersatu Gemilang di Delima, Agustus 2026'
 where not exists (select 1 from public.announcements where title = '81 TAHUN KEMERDEKAAN RI');
 
+insert into public.announcements (title, body, published_at, pinned, published, image_alt)
+select 'Ikuti Instagram Delima Residence', $$Delima Residence punya Instagram resmi.
+
+Ikuti @delimaresidencesda untuk melihat kabar kegiatan, informasi lingkungan, dan momen warga OPAL.
+
+https://www.instagram.com/delimaresidencesda/$$, '2026-08-14', false, true, 'Profil Instagram resmi Delima Residence dengan unggahan kegiatan warga.'
+where not exists (select 1 from public.announcements where title = 'Ikuti Instagram Delima Residence');
+
 delete from public.resources
 where title = 'Petugas Pos dan Taman'
   and href = 'https://docs.google.com/document/d/1wmdqSlR7bnE3eKftS89f7sxj6yCgZEvZhZORbBemUAA/edit?usp=sharing';

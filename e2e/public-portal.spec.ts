@@ -159,6 +159,13 @@ test("Beranda menampilkan feed pengumuman yang stabil dan tidak overflow", async
   await expect(page.getByRole("button", { name: "Tutup pengumuman" })).toBeVisible();
   await page.getByRole("button", { name: "Tutup pengumuman" }).click();
   await expect(page.getByRole("dialog", { name: "81 TAHUN KEMERDEKAAN RI" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Ikuti Instagram Delima Residence" })).toBeVisible();
+  await page.getByRole("button", { name: "Baca detail" }).click();
+  const instagramDialog = page.getByRole("dialog", { name: "Ikuti Instagram Delima Residence" });
+  await expect(instagramDialog).toBeVisible();
+  await expect(instagramDialog.getByRole("img", { name: "Profil Instagram resmi Delima Residence dengan unggahan kegiatan warga." })).toBeVisible();
+  await expect(instagramDialog.getByRole("link", { name: "https://www.instagram.com/delimaresidencesda/" })).toHaveAttribute("href", "https://www.instagram.com/delimaresidencesda/");
+  await instagramDialog.getByRole("button", { name: "Tutup pengumuman" }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await page.getByRole("button", { name: "Ganti tema warna" }).click();
