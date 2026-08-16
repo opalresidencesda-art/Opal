@@ -28,6 +28,13 @@ const statusMeta: Record<PropertyMapStatus, { label: string; color: string; pane
   vacant: { label: "Unit kosong", color: "#a7b1ad", panel: "bg-surface-raised text-ink-muted" },
 };
 
+const gangMeta: Record<number, { color: string; background: string; border: string; text: string }> = {
+  1: { color: "#2563eb", background: "rgba(239,246,255,.97)", border: "#93c5fd", text: "#163e75" },
+  2: { color: "#d97706", background: "rgba(255,247,237,.97)", border: "#fdba74", text: "#7c2d12" },
+  3: { color: "#7c3aed", background: "rgba(245,243,255,.97)", border: "#c4b5fd", text: "#4c1d95" },
+  5: { color: "#e11d48", background: "rgba(255,241,242,.97)", border: "#fda4af", text: "#881337" },
+};
+
 function statusOf(property: PropertyMapSummary) { return mapStatus(property); }
 function formatDate(value: string) { return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date(value)); }
 function formatMonth(value: string | null) { return value ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date(value)) : "Belum tercatat"; }
@@ -141,8 +148,21 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
     const updateLabelVisibility = () => {
       const close = map.getZoom() >= 18.4;
       markers.forEach((marker) => {
-        const kind = marker.getElement().dataset.atlasKind;
-        marker.getElement().style.display = kind === "cluster" || kind === "pending" ? "block" : kind === "unit" || kind === "slot" ? (close ? "block" : "none") : (close ? "none" : "block");
+        const element = marker.getElement();
+        const kind = element.dataset.atlasKind;
+        if (kind === "unit") {
+          const color = element.dataset.atlasColor ?? "#0d7b6f";
+          const background = element.dataset.atlasBackground ?? "rgba(255,255,255,.96)";
+          const border = element.dataset.atlasBorder ?? "rgba(255,255,255,.95)";
+          const text = element.dataset.atlasText ?? "#12352f";
+          element.style.display = "block";
+          element.textContent = close ? (element.dataset.atlasLabel ?? "") : "";
+          element.style.cssText = close
+            ? `min-width:30px;height:25px;padding:0 7px;border:1px solid ${border};border-bottom:3px solid ${color};border-radius:7px;background:${background};color:${text};font:800 11px Manrope,system-ui,sans-serif;box-shadow:0 3px 12px rgba(5,37,29,.28);cursor:pointer;transition:${reducedMotion ? "none" : "background-color .16s ease,box-shadow .16s ease"};`
+            : `width:11px;height:11px;padding:0;border:2px solid rgba(255,255,255,.96);border-radius:999px;background:${color};box-shadow:0 2px 8px rgba(5,37,29,.42);cursor:pointer;transform:translateY(5px);`;
+          return;
+        }
+        element.style.display = kind === "cluster" || kind === "pending" ? "block" : close ? "block" : "none";
       });
     };
     const clusterLabel = document.createElement("button");
@@ -155,11 +175,12 @@ export function AdminPropertyMap({ properties, initialUnit }: { properties: Prop
     markers.push(new maplibregl.Marker({ element: clusterLabel, anchor: "bottom" }).setLngLat([OPAL_ATLAS_CENTER.lng, OPAL_ATLAS_CENTER.lat]).addTo(map));
     visibleProperties.filter((property) => property.position).forEach((property) => {
       const meta = statusMeta[statusOf(property)];
+      const gang = gangMeta[property.gang] ?? gangMeta[1];
       const button = document.createElement("button");
       button.type = "button"; button.dataset.atlasKind = "unit"; button.title = `${streetForGang(property.gang).name}, No. ${property.houseNumber}`;
+      button.dataset.atlasLabel = property.houseNumber; button.dataset.atlasColor = gang.color; button.dataset.atlasBackground = gang.background; button.dataset.atlasBorder = gang.border; button.dataset.atlasText = gang.text;
       button.setAttribute("aria-label", `${property.unitCode}, ${meta.label}`); button.textContent = property.houseNumber;
-      button.style.cssText = `min-width:30px;height:25px;padding:0 7px;border:1px solid rgba(255,255,255,.95);border-bottom:3px solid ${meta.color};border-radius:7px;background:rgba(255,255,255,.96);color:#12352f;font:800 11px Manrope,system-ui,sans-serif;box-shadow:0 3px 12px rgba(5,37,29,.28);cursor:pointer;transition:${reducedMotion ? "none" : "background-color .16s ease,box-shadow .16s ease"};`;
-      button.addEventListener("mouseenter", () => { button.style.background = "#fff"; button.style.boxShadow = "0 5px 16px rgba(5,37,29,.34)"; }); button.addEventListener("mouseleave", () => { button.style.background = "rgba(255,255,255,.96)"; button.style.boxShadow = "0 3px 12px rgba(5,37,29,.28)"; });
+      button.addEventListener("mouseenter", () => { if (map.getZoom() < 18.4) return; button.style.background = "#fff"; button.style.boxShadow = "0 5px 16px rgba(5,37,29,.34)"; }); button.addEventListener("mouseleave", () => { if (map.getZoom() < 18.4) return; button.style.background = button.dataset.atlasBackground ?? "rgba(255,255,255,.96)"; button.style.boxShadow = "0 3px 12px rgba(5,37,29,.28)"; });
       button.addEventListener("click", (event) => { event.stopPropagation(); selectProperty(property); if (calibrating) setCalibrationTargetId(property.id); });
       markers.push(new maplibregl.Marker({ element: button, anchor: "bottom" }).setLngLat([property.position!.longitude, property.position!.latitude]).addTo(map));
     });

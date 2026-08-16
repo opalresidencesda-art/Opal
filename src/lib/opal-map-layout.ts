@@ -45,7 +45,7 @@ export const OPAL_MAP_LAYOUT = {
   ],
 } as const;
 
-const HOUSES_PER_GANG = 80;
+const HOUSES_PER_GANG = 86;
 const HOUSE_WIDTH = 20;
 const HOUSE_HEIGHT = 13;
 
@@ -53,7 +53,7 @@ export const OPAL_MAP_SLOTS: MapSlot[] = OPAL_MAP_LAYOUT.roads.flatMap((road) =>
   Array.from({ length: HOUSES_PER_GANG }, (_, index) => {
     const side = index < HOUSES_PER_GANG / 2 ? "west" : "east" as const;
     const number = String(index + 1);
-    const t = ((index % (HOUSES_PER_GANG / 2)) + 0.5) / (HOUSES_PER_GANG / 2);
+    const t = 1 - ((index % (HOUSES_PER_GANG / 2)) + 0.5) / (HOUSES_PER_GANG / 2);
     const x = road.start[0] + (road.end[0] - road.start[0]) * t;
     const y = road.start[1] + (road.end[1] - road.start[1]) * t;
     const offset = side === "west" ? -22 : 22;

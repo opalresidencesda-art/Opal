@@ -15,9 +15,19 @@ describe("OPAL Atlas layout", () => {
 
   it("keeps every OPAL road and fixed house slot available before resident import", () => {
     expect(OPAL_MAP_LAYOUT.roads.map((road) => road.gang)).toEqual([1, 2, 3, 5]);
-    expect(OPAL_MAP_SLOTS).toHaveLength(320);
+    expect(OPAL_MAP_SLOTS).toHaveLength(344);
     expect(new Set(OPAL_MAP_SLOTS.map((slot) => slot.id)).size).toBe(OPAL_MAP_SLOTS.length);
     expect(OPAL_MAP_SLOTS.filter((slot) => slot.gang === 5 && slot.houseNumber === "14")).toHaveLength(1);
+    expect(OPAL_MAP_SLOTS.filter((slot) => slot.gang === 5 && slot.houseNumber === "86")).toHaveLength(1);
+  });
+
+  it("numbers both sides of every gang from right to left", () => {
+    const slot = (gang: number, houseNumber: string) => OPAL_MAP_SLOTS.find((item) => item.gang === gang && item.houseNumber === houseNumber)!;
+
+    for (const gang of [1, 2, 3, 5]) {
+      expect(slot(gang, "1").x).toBeGreaterThan(slot(gang, "43").x);
+      expect(slot(gang, "44").x).toBeGreaterThan(slot(gang, "86").x);
+    }
   });
 
   it("finds static units and matches padded database house numbers", () => {
