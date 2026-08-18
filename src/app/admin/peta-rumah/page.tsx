@@ -82,19 +82,25 @@ function mapProperty(row: MapPropertyRow): PropertyMapSummary {
 }
 
 export default async function AdminPropertyMapPage({ searchParams }: { searchParams: Promise<{ unit?: string | string[] }> }) {
-  const context = await getAdminContext();
-  if (context.kind === "signed-out") redirect("/admin/login");
-  if (context.kind === "forbidden") redirect("/admin/login?reason=forbidden");
-  if (context.kind === "setup") return <SetupState />;
+  try {
+    const context = await getAdminContext();
+    if (context.kind === "signed-out") redirect("/admin/login");
+    if (context.kind === "forbidden") redirect("/admin/login?reason=forbidden");
+    if (context.kind === "setup") return <SetupState />;
 
-  const supabase = await createSupabaseServerClient();
-  const [propertiesResult, params] = await Promise.all([
-    supabase.from("properties").select("id,unit_code,gang,house_number,occupancy_status,active,access_token_created_at,access_token_revoked_at,resident_profiles(responsible_name,responsible_address,whatsapp,head_of_household_name,head_of_household_occupation,occupants_count,contact_email,updated_at),resident_submissions(id,status,created_at,resident_evidence(id,evidence_kind,original_name)),property_contributions(status,period,amount_rupiah,paid_at),service_requests(id,request_type,status,created_at),property_map_positions(latitude,longitude,calibrated_at,calibrated_by)").order("unit_code"),
-    searchParams,
-  ]);
-  if (propertiesResult.error) return <LoadError />;
-  const initialUnit = typeof params.unit === "string" ? params.unit : undefined;
-  return <AdminPropertyMap properties={(propertiesResult.data ?? []).map((row) => mapProperty(row as MapPropertyRow))} initialUnit={initialUnit} />;
+    const supabase = await createSupabaseServerClient();
+    const [propertiesResult, params] = await Promise.all([
+      supabase.from("properties").select("id,unit_code,gang,house_number,occupancy_status,active,access_token_created_at,access_token_revoked_at,resident_profiles(responsible_name,responsible_address,whatsapp,head_of_household_name,head_of_household_occupation,occupants_count,contact_email,updated_at),resident_submissions(id,status,created_at,resident_evidence(id,evidence_kind,original_name)),property_contributions(status,period,amount_rupiah,paid_at),service_requests(id,request_type,status,created_at),property_map_positions(latitude,longitude,calibrated_at,calibrated_by)").order("unit_code"),
+      searchParams,
+    ]);
+    if (propertiesResult.error) return <LoadError />;
+    const initialUnit = typeof params.unit === "string" ? params.unit : undefined;
+    return <AdminPropertyMap properties={(propertiesResult.data ?? []).map((row) => mapProperty(row as MapPropertyRow))} initialUnit={initialUnit} />;
+  } catch (error) {
+    if (error instanceof Error && typeof error.digest === "string" && error.digest.startsWith("NEXT_REDIRECT")) throw error;
+    console.error("[peta-rumah] Server render failed:", error);
+    return <LoadError />;
+  }
 }
 
 function SetupState() {
