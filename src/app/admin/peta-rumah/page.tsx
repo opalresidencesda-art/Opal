@@ -97,7 +97,7 @@ export default async function AdminPropertyMapPage({ searchParams }: { searchPar
     const initialUnit = typeof params.unit === "string" ? params.unit : undefined;
     return <AdminPropertyMap properties={(propertiesResult.data ?? []).map((row) => mapProperty(row as MapPropertyRow))} initialUnit={initialUnit} />;
   } catch (error) {
-    if (error instanceof Error && typeof error.digest === "string" && error.digest.startsWith("NEXT_REDIRECT")) throw error;
+    if (error instanceof Error && "digest" in error && typeof (error as { digest?: string }).digest === "string" && (error as { digest: string }).digest.startsWith("NEXT_REDIRECT")) throw error;
     console.error("[peta-rumah] Server render failed:", error);
     return <LoadError />;
   }
