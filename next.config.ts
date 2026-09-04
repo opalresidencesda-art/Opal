@@ -32,8 +32,8 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
-      // Only used by the signed-in admin to upload floor-plan images.
-      bodySizeLimit: "5mb",
+      // Allows multipart overhead while each signed-in admin image remains capped at 5 MB.
+      bodySizeLimit: "6mb",
     },
   },
   async headers() {

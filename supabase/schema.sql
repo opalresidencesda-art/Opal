@@ -188,12 +188,21 @@ create table if not exists public.properties (
   gang smallint not null check (gang in (1, 2, 3, 5)),
   house_number text not null check (char_length(house_number) between 1 and 8),
   occupancy_status text check (occupancy_status in ('self', 'relative', 'tenant', 'vacant_rent', 'vacant_sale')),
+  image_path text,
   access_token_hash text unique,
   access_token_created_at timestamptz,
   access_token_revoked_at timestamptz,
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+-- Backfill-safe property image column and strict property-scoped private Storage path.
+alter table public.properties add column if not exists image_path text;
+alter table public.properties drop constraint if exists properties_image_path_check;
+alter table public.properties add constraint properties_image_path_check check (
+  image_path is null
+  or image_path ~* ('^properties/' || id::text || '/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$')
 );
 
 create table if not exists public.property_map_positions (

@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { isAnnouncementAssetPath, isFloorPlanAssetPath, isResidentEvidencePath, isStaffAssetPath } from "../src/lib/storage-paths";
+import { isAnnouncementAssetPath, isFloorPlanAssetPath, isPropertyAssetPath, isResidentEvidencePath, isStaffAssetPath } from "../src/lib/storage-paths";
 
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8");
 const securitySource = readFileSync(new URL("../src/lib/security.ts", import.meta.url), "utf8");
 const nextConfigSource = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+const propertyImageRouteSource = readFileSync(new URL("../src/app/api/admin/property-image/[id]/route.ts", import.meta.url), "utf8");
+const adminActionsSource = readFileSync(new URL("../src/app/admin/actions.ts", import.meta.url), "utf8");
 
 describe("security invariants", () => {
   it("uses high-entropy, format-constrained private house tokens", () => {
@@ -18,9 +20,23 @@ describe("security invariants", () => {
     expect(isAnnouncementAssetPath(`announcements/${id}.jpg`)).toBe(true);
     expect(isStaffAssetPath(`staff/${id}.webp`)).toBe(true);
     expect(isFloorPlanAssetPath(`floor-plans/${id}.png`)).toBe(true);
+    expect(isPropertyAssetPath(`properties/${id}/${id}.jpg`, id)).toBe(true);
     expect(isResidentEvidencePath(`submissions/${id}/familyCard.heic`, id)).toBe(true);
     expect(isResidentEvidencePath(`submissions/${id}/../../staff/${id}.jpg`, id)).toBe(false);
     expect(isAnnouncementAssetPath(`staff/${id}.jpg`)).toBe(false);
+  });
+
+  it("keeps property images private and property-scoped", () => {
+    expect(schema).toContain("properties_image_path_check");
+    expect(schema).toContain("^properties/' || id::text");
+    expect(propertyImageRouteSource).toContain("await requireAdmin()");
+    expect(propertyImageRouteSource).toContain("isPropertyAssetPath(property?.image_path, id)");
+    expect(propertyImageRouteSource).toContain('storage.from("opal-assets").download');
+    expect(propertyImageRouteSource).toContain('"cache-control": "private, no-store"');
+    expect(propertyImageRouteSource).toContain('"cross-origin-resource-policy": "same-origin"');
+    expect(adminActionsSource).toContain("persistPropertyImage({");
+    expect(adminActionsSource).toContain('storage.from("opal-assets").upload');
+    expect(adminActionsSource).toContain("existingImagePath");
   });
 
   it("keeps private operational tables behind admin RLS", () => {

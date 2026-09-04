@@ -36,6 +36,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# local property image import data and audit logs
+/scripts/property-image-import/drive_inventory.json
+/scripts/property-image-import/drive_inventory.md
+/scripts/property-image-import/*-audit.json
+
 # vercel
 .vercel
 

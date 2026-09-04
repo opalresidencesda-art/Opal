@@ -9,6 +9,7 @@ import { renderOfficialDocument, type DocumentSettings } from "@/lib/documents";
 import { formatDocumentNumber } from "@/lib/document-number";
 import { sanitizeMarkdown } from "@/lib/markdown";
 import { jakartaPeriod, KAS_OPAL_CONTRIBUTION_CATEGORY, isPeriodMonth } from "@/lib/monthly-dues";
+import { persistPropertyImage, PROPERTY_IMAGE_MAX_BYTES, PROPERTY_IMAGE_MIME_TYPES } from "@/lib/property-images";
 import { isFloorPlanAssetPath } from "@/lib/storage-paths";
 import { createAccessToken, hashAccessToken } from "@/lib/security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -411,10 +412,20 @@ export async function savePropertyProfile(formData: FormData) {
   };
   const profileProvided = Object.values(profileInput).some(Boolean);
   const parsedProfile = profileProvided ? mapProfileSchema.parse(profileInput) : null;
+  const candidate = formData.get("image");
+  const image = candidate && typeof candidate === "object" && "arrayBuffer" in candidate && "size" in candidate && "type" in candidate && candidate.size > 0 ? candidate as File : null;
+  if (image && (image.size > PROPERTY_IMAGE_MAX_BYTES || !PROPERTY_IMAGE_MIME_TYPES.includes(image.type as (typeof PROPERTY_IMAGE_MIME_TYPES)[number]))) {
+    throw new Error("Gambar rumah harus berupa JPG, PNG, atau WEBP maksimal 5 MB.");
+  }
+
   const nextUnitCode = unitCode(property.gang, property.houseNumber);
   let propertyId = property.propertyId;
+  let existingImagePath: string | null = null;
 
   if (propertyId) {
+    const existingResult = await supabase.from("properties").select("image_path").eq("id", propertyId).maybeSingle();
+    if (existingResult.error || !existingResult.data) throw new Error("Rumah yang akan diubah tidak ditemukan.");
+    existingImagePath = typeof existingResult.data.image_path === "string" ? existingResult.data.image_path : null;
     const { error } = await supabase.from("properties").update({
       unit_code: nextUnitCode,
       gang: property.gang,
@@ -433,7 +444,29 @@ export async function savePropertyProfile(formData: FormData) {
     propertyId = data.id;
   }
 
-  if (parsedProfile && propertyId) {
+  if (!propertyId) throw new Error("Rumah tidak dapat disimpan.");
+  const assetStorage = createSupabaseAdminClient().storage.from("opal-assets");
+  await persistPropertyImage({
+    propertyId,
+    existingImagePath,
+    image,
+    removeImage: boolValue(formData, "removeImage"),
+    assetId: randomUUID(),
+    async upload(path, bytes, contentType) {
+      const { error } = await assetStorage.upload(path, bytes, { contentType, upsert: false });
+      if (error) throw new Error("Gambar rumah tidak dapat diunggah.");
+    },
+    async saveImagePath(path) {
+      const { error } = await supabase.from("properties").update({ image_path: path }).eq("id", propertyId);
+      if (error) throw new Error("Path gambar rumah tidak dapat disimpan.");
+    },
+    async remove(path) {
+      const { error } = await assetStorage.remove([path]);
+      if (error) throw new Error("Berkas gambar rumah tidak dapat dihapus.");
+    },
+  });
+
+  if (parsedProfile) {
     const { error } = await supabase.from("resident_profiles").upsert({
       property_id: propertyId,
       responsible_name: parsedProfile.responsibleName,
@@ -449,7 +482,7 @@ export async function savePropertyProfile(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/peta-rumah");
-  return { propertyId, unitCode: nextUnitCode, message: parsedProfile ? "Data rumah dan keluarga tersimpan." : "Rumah tersimpan. Isi data keluarga saat sudah tersedia." };
+  return { propertyId, unitCode: nextUnitCode, message: parsedProfile ? "Data rumah, gambar, dan keluarga tersimpan." : "Rumah tersimpan. Isi data keluarga saat sudah tersedia." };
 }
 
 export async function createPropertyMapLink(propertyId: string) {

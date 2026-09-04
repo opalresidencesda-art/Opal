@@ -109,6 +109,7 @@ export type PropertyMapSummary = {
   gang: number;
   houseNumber: string;
   occupancyStatus: string | null;
+  imagePath: string | null;
   active: boolean;
   accessLinkActive: boolean;
   position: PropertyMapPosition | null;
