@@ -26,17 +26,16 @@ describe("security invariants", () => {
     expect(isAnnouncementAssetPath(`staff/${id}.jpg`)).toBe(false);
   });
 
-  it("keeps property images private and property-scoped", () => {
-    expect(schema).toContain("properties_image_path_check");
-    expect(schema).toContain("^properties/' || id::text");
+  it("keeps property images private and property-scoped without requiring a properties migration", () => {
+    expect(schema).not.toContain("properties_image_path_check");
     expect(propertyImageRouteSource).toContain("await requireAdmin()");
-    expect(propertyImageRouteSource).toContain("isPropertyAssetPath(property?.image_path, id)");
+    expect(propertyImageRouteSource).toContain("propertyImageSourceName(id)");
     expect(propertyImageRouteSource).toContain('storage.from("opal-assets").download');
     expect(propertyImageRouteSource).toContain('"cache-control": "private, no-store"');
     expect(propertyImageRouteSource).toContain('"cross-origin-resource-policy": "same-origin"');
     expect(adminActionsSource).toContain("persistPropertyImage({");
     expect(adminActionsSource).toContain('storage.from("opal-assets").upload');
-    expect(adminActionsSource).toContain("existingImagePath");
+    expect(adminActionsSource).toContain('from("source_imports")');
   });
 
   it("keeps private operational tables behind admin RLS", () => {

@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin";
 import { renderOfficialDocument, type DocumentSettings } from "@/lib/documents";
 import { formatDocumentNumber } from "@/lib/document-number";
 import { sanitizeMarkdown } from "@/lib/markdown";
 import { jakartaPeriod, KAS_OPAL_CONTRIBUTION_CATEGORY, isPeriodMonth } from "@/lib/monthly-dues";
+import { parsePropertyImageRecord, propertyImageSourceName, type PropertyImageRecord } from "@/lib/property-image-records";
 import { persistPropertyImage, PROPERTY_IMAGE_MAX_BYTES, PROPERTY_IMAGE_MIME_TYPES } from "@/lib/property-images";
 import { isFloorPlanAssetPath } from "@/lib/storage-paths";
 import { createAccessToken, hashAccessToken } from "@/lib/security";
@@ -394,7 +395,7 @@ export async function createProperty(formData: FormData) {
 }
 
 export async function savePropertyProfile(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase, email } = await requireAdmin();
   const property = mapPropertySchema.parse({
     propertyId: uuidValue(formData, "propertyId", false) || undefined,
     gang: textValue(formData, "gang"),
@@ -423,9 +424,8 @@ export async function savePropertyProfile(formData: FormData) {
   let existingImagePath: string | null = null;
 
   if (propertyId) {
-    const existingResult = await supabase.from("properties").select("image_path").eq("id", propertyId).maybeSingle();
+    const existingResult = await supabase.from("properties").select("id").eq("id", propertyId).maybeSingle();
     if (existingResult.error || !existingResult.data) throw new Error("Rumah yang akan diubah tidak ditemukan.");
-    existingImagePath = typeof existingResult.data.image_path === "string" ? existingResult.data.image_path : null;
     const { error } = await supabase.from("properties").update({
       unit_code: nextUnitCode,
       gang: property.gang,
@@ -445,6 +445,13 @@ export async function savePropertyProfile(formData: FormData) {
   }
 
   if (!propertyId) throw new Error("Rumah tidak dapat disimpan.");
+  const imageSourceName = propertyImageSourceName(propertyId);
+  const imageRecordsResult = await supabase.from("source_imports").select("id,source_name,source_sha256,notes,imported_at").eq("source_name", imageSourceName).order("imported_at", { ascending: false });
+  if (imageRecordsResult.error) throw new Error("Metadata gambar rumah tidak dapat dibaca.");
+  const imageRecords = imageRecordsResult.data ?? [];
+  existingImagePath = imageRecords.map((record) => parsePropertyImageRecord(record as PropertyImageRecord)?.storagePath ?? null).find((path): path is string => Boolean(path)) ?? null;
+  const imageBytes = image ? Buffer.from(await image.arrayBuffer()) : null;
+  const imageSha256 = imageBytes ? createHash("sha256").update(imageBytes).digest("hex") : null;
   const assetStorage = createSupabaseAdminClient().storage.from("opal-assets");
   await persistPropertyImage({
     propertyId,
@@ -457,8 +464,28 @@ export async function savePropertyProfile(formData: FormData) {
       if (error) throw new Error("Gambar rumah tidak dapat diunggah.");
     },
     async saveImagePath(path) {
-      const { error } = await supabase.from("properties").update({ image_path: path }).eq("id", propertyId);
-      if (error) throw new Error("Path gambar rumah tidak dapat disimpan.");
+      if (!path) {
+        const { error } = await supabase.from("source_imports").delete().eq("source_name", imageSourceName);
+        if (error) throw new Error("Metadata gambar rumah tidak dapat dihapus.");
+        return;
+      }
+      const inserted = await supabase.from("source_imports").insert({
+        source_name: imageSourceName,
+        source_sha256: imageSha256,
+        row_count: 1,
+        amount_total_rupiah: 0,
+        imported_by: email,
+        notes: JSON.stringify({ storagePath: path }),
+      }).select("id").single();
+      if (inserted.error || !inserted.data) throw new Error("Metadata gambar rumah tidak dapat disimpan.");
+      const oldIds = imageRecords.map((record) => record.id);
+      if (oldIds.length) {
+        const deleted = await supabase.from("source_imports").delete().in("id", oldIds);
+        if (deleted.error) {
+          await supabase.from("source_imports").delete().eq("id", inserted.data.id);
+          throw new Error("Metadata gambar rumah lama tidak dapat diganti.");
+        }
+      }
     },
     async remove(path) {
       const { error } = await assetStorage.remove([path]);
