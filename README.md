@@ -11,7 +11,7 @@ Portal operasional OPAL Residence: panduan native, pendataan warga dengan bukti 
 - `/petugas`, `/spesifikasi-rumah`, `/denah`: direktori kerja, spesifikasi, dan empat lembar denah asli yang sudah dipindahkan sebagai aset lokal.
 - `/admin`: antrean pendataan/surat, penerbitan, pengaturan nomor surat, Kas, token rumah, petugas, spesifikasi, denah, panduan, dan pengumuman.
 - Pengumuman warga mendukung gambar informasi JPG/PNG/WEBP maksimal 5 MB. Gambar disimpan privat di Storage dan hanya disajikan melalui endpoint same-origin untuk pengumuman yang boleh dilihat.
-- `/admin/peta-rumah`: OPAL Atlas, peta satelit MapLibre privat dengan pencarian nomor rumah, inspector keluarga, dan kalibrasi titik rumah satu per satu.
+- `/admin/peta-rumah`: OPAL Atlas, a private MapLibre satellite map with house-number search, family inspection, calibrated house positions, and one private image per property. Admins can preview, replace, or remove JPG/PNG/WEBP images up to 5 MB. Files have no public read path and are served only through an authenticated same-origin admin endpoint.
 
 ## Menjalankan lokal
 

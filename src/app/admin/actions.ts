@@ -2,13 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/admin";
 import { renderOfficialDocument, type DocumentSettings } from "@/lib/documents";
 import { formatDocumentNumber } from "@/lib/document-number";
 import { sanitizeMarkdown } from "@/lib/markdown";
 import { jakartaPeriod, KAS_OPAL_CONTRIBUTION_CATEGORY, isPeriodMonth } from "@/lib/monthly-dues";
+import { parsePropertyImageRecord, propertyImageSourceName, type PropertyImageRecord } from "@/lib/property-image-records";
+import { persistPropertyImage, PROPERTY_IMAGE_MAX_BYTES, PROPERTY_IMAGE_MIME_TYPES } from "@/lib/property-images";
 import { isFloorPlanAssetPath } from "@/lib/storage-paths";
 import { createAccessToken, hashAccessToken } from "@/lib/security";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -393,7 +395,7 @@ export async function createProperty(formData: FormData) {
 }
 
 export async function savePropertyProfile(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase, email } = await requireAdmin();
   const property = mapPropertySchema.parse({
     propertyId: uuidValue(formData, "propertyId", false) || undefined,
     gang: textValue(formData, "gang"),
@@ -411,10 +413,19 @@ export async function savePropertyProfile(formData: FormData) {
   };
   const profileProvided = Object.values(profileInput).some(Boolean);
   const parsedProfile = profileProvided ? mapProfileSchema.parse(profileInput) : null;
+  const candidate = formData.get("image");
+  const image = candidate && typeof candidate === "object" && "arrayBuffer" in candidate && "size" in candidate && "type" in candidate && candidate.size > 0 ? candidate as File : null;
+  if (image && (image.size > PROPERTY_IMAGE_MAX_BYTES || !PROPERTY_IMAGE_MIME_TYPES.includes(image.type as (typeof PROPERTY_IMAGE_MIME_TYPES)[number]))) {
+    throw new Error("Gambar rumah harus berupa JPG, PNG, atau WEBP maksimal 5 MB.");
+  }
+
   const nextUnitCode = unitCode(property.gang, property.houseNumber);
   let propertyId = property.propertyId;
+  let existingImagePath: string | null = null;
 
   if (propertyId) {
+    const existingResult = await supabase.from("properties").select("id").eq("id", propertyId).maybeSingle();
+    if (existingResult.error || !existingResult.data) throw new Error("Rumah yang akan diubah tidak ditemukan.");
     const { error } = await supabase.from("properties").update({
       unit_code: nextUnitCode,
       gang: property.gang,
@@ -433,7 +444,56 @@ export async function savePropertyProfile(formData: FormData) {
     propertyId = data.id;
   }
 
-  if (parsedProfile && propertyId) {
+  if (!propertyId) throw new Error("Rumah tidak dapat disimpan.");
+  const imageSourceName = propertyImageSourceName(propertyId);
+  const imageRecordsResult = await supabase.from("source_imports").select("id,source_name,source_sha256,notes,imported_at").eq("source_name", imageSourceName).order("imported_at", { ascending: false });
+  if (imageRecordsResult.error) throw new Error("Metadata gambar rumah tidak dapat dibaca.");
+  const imageRecords = imageRecordsResult.data ?? [];
+  existingImagePath = imageRecords.map((record) => parsePropertyImageRecord(record as PropertyImageRecord)?.storagePath ?? null).find((path): path is string => Boolean(path)) ?? null;
+  const imageBytes = image ? Buffer.from(await image.arrayBuffer()) : null;
+  const imageSha256 = imageBytes ? createHash("sha256").update(imageBytes).digest("hex") : null;
+  const assetStorage = createSupabaseAdminClient().storage.from("opal-assets");
+  await persistPropertyImage({
+    propertyId,
+    existingImagePath,
+    image,
+    removeImage: boolValue(formData, "removeImage"),
+    assetId: randomUUID(),
+    async upload(path, bytes, contentType) {
+      const { error } = await assetStorage.upload(path, bytes, { contentType, upsert: false });
+      if (error) throw new Error("Gambar rumah tidak dapat diunggah.");
+    },
+    async saveImagePath(path) {
+      if (!path) {
+        const { error } = await supabase.from("source_imports").delete().eq("source_name", imageSourceName);
+        if (error) throw new Error("Metadata gambar rumah tidak dapat dihapus.");
+        return;
+      }
+      const inserted = await supabase.from("source_imports").insert({
+        source_name: imageSourceName,
+        source_sha256: imageSha256,
+        row_count: 1,
+        amount_total_rupiah: 0,
+        imported_by: email,
+        notes: JSON.stringify({ storagePath: path }),
+      }).select("id").single();
+      if (inserted.error || !inserted.data) throw new Error("Metadata gambar rumah tidak dapat disimpan.");
+      const oldIds = imageRecords.map((record) => record.id);
+      if (oldIds.length) {
+        const deleted = await supabase.from("source_imports").delete().in("id", oldIds);
+        if (deleted.error) {
+          await supabase.from("source_imports").delete().eq("id", inserted.data.id);
+          throw new Error("Metadata gambar rumah lama tidak dapat diganti.");
+        }
+      }
+    },
+    async remove(path) {
+      const { error } = await assetStorage.remove([path]);
+      if (error) throw new Error("Berkas gambar rumah tidak dapat dihapus.");
+    },
+  });
+
+  if (parsedProfile) {
     const { error } = await supabase.from("resident_profiles").upsert({
       property_id: propertyId,
       responsible_name: parsedProfile.responsibleName,
@@ -449,7 +509,7 @@ export async function savePropertyProfile(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/peta-rumah");
-  return { propertyId, unitCode: nextUnitCode, message: parsedProfile ? "Data rumah dan keluarga tersimpan." : "Rumah tersimpan. Isi data keluarga saat sudah tersedia." };
+  return { propertyId, unitCode: nextUnitCode, message: parsedProfile ? "Data rumah, gambar, dan keluarga tersimpan." : "Rumah tersimpan. Isi data keluarga saat sudah tersedia." };
 }
 
 export async function createPropertyMapLink(propertyId: string) {

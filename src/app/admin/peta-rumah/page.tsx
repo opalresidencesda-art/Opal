@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AdminPropertyMap } from "@/components/admin-property-map";
 import { getAdminContext } from "@/lib/admin";
 import { type PropertyMapSummary } from "@/lib/opal-map-layout";
+import { latestPropertyImagePaths, type PropertyImageRecord } from "@/lib/property-image-records";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ function first<T>(value: T | T[] | null) {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
-function mapProperty(row: MapPropertyRow): PropertyMapSummary {
+function mapProperty(row: MapPropertyRow, imagePath: string | null): PropertyMapSummary {
   const profile = first(row.resident_profiles);
   const latestSubmission = [...(row.resident_submissions ?? [])].sort((left, right) => right.created_at.localeCompare(left.created_at))[0];
   return {
@@ -52,6 +53,7 @@ function mapProperty(row: MapPropertyRow): PropertyMapSummary {
     gang: row.gang,
     houseNumber: row.house_number,
     occupancyStatus: row.occupancy_status,
+    imagePath,
     active: row.active,
     accessLinkActive: Boolean(row.access_token_created_at && !row.access_token_revoked_at),
     position: first(row.property_map_positions) ? {
@@ -81,26 +83,47 @@ function mapProperty(row: MapPropertyRow): PropertyMapSummary {
   };
 }
 
-export default async function AdminPropertyMapPage({ searchParams }: { searchParams: Promise<{ unit?: string | string[] }> }) {
+type PropertyMapPageState =
+  | { kind: "signed-out" }
+  | { kind: "forbidden" }
+  | { kind: "setup" }
+  | { kind: "load-error" }
+  | { kind: "ready"; properties: PropertyMapSummary[]; initialUnit?: string };
+
+async function loadPropertyMapPage(searchParams: Promise<{ unit?: string | string[] }>): Promise<PropertyMapPageState> {
   try {
     const context = await getAdminContext();
-    if (context.kind === "signed-out") redirect("/admin/login");
-    if (context.kind === "forbidden") redirect("/admin/login?reason=forbidden");
-    if (context.kind === "setup") return <SetupState />;
+    if (context.kind === "signed-out" || context.kind === "forbidden" || context.kind === "setup") {
+      return { kind: context.kind };
+    }
 
     const supabase = await createSupabaseServerClient();
-    const [propertiesResult, params] = await Promise.all([
+    const [propertiesResult, imagesResult, params] = await Promise.all([
       supabase.from("properties").select("id,unit_code,gang,house_number,occupancy_status,active,access_token_created_at,access_token_revoked_at,resident_profiles(responsible_name,responsible_address,whatsapp,head_of_household_name,head_of_household_occupation,occupants_count,contact_email,updated_at),resident_submissions(id,status,created_at,resident_evidence(id,evidence_kind,original_name)),property_contributions(status,period,amount_rupiah,paid_at),service_requests(id,request_type,status,created_at),property_map_positions(latitude,longitude,calibrated_at,calibrated_by)").order("unit_code"),
+      supabase.from("source_imports").select("id,source_name,notes,imported_at").like("source_name", "property-image:%").order("imported_at", { ascending: false }),
       searchParams,
     ]);
-    if (propertiesResult.error) return <LoadError />;
+    if (propertiesResult.error || imagesResult.error) return { kind: "load-error" };
+    const imagePaths = latestPropertyImagePaths((imagesResult.data ?? []) as PropertyImageRecord[]);
     const initialUnit = typeof params.unit === "string" ? params.unit : undefined;
-    return <AdminPropertyMap properties={(propertiesResult.data ?? []).map((row) => mapProperty(row as MapPropertyRow))} initialUnit={initialUnit} />;
+    return {
+      kind: "ready",
+      properties: (propertiesResult.data ?? []).map((row) => mapProperty(row as MapPropertyRow, imagePaths.get(row.id) ?? null)),
+      initialUnit,
+    };
   } catch (error) {
-    if (error instanceof Error && "digest" in error && typeof (error as { digest?: string }).digest === "string" && (error as { digest: string }).digest.startsWith("NEXT_REDIRECT")) throw error;
     console.error("[peta-rumah] Server render failed:", error);
-    return <LoadError />;
+    return { kind: "load-error" };
   }
+}
+
+export default async function AdminPropertyMapPage({ searchParams }: { searchParams: Promise<{ unit?: string | string[] }> }) {
+  const state = await loadPropertyMapPage(searchParams);
+  if (state.kind === "signed-out") redirect("/admin/login");
+  if (state.kind === "forbidden") redirect("/admin/login?reason=forbidden");
+  if (state.kind === "setup") return <SetupState />;
+  if (state.kind === "load-error") return <LoadError />;
+  return <AdminPropertyMap properties={state.properties} initialUnit={state.initialUnit} />;
 }
 
 function SetupState() {

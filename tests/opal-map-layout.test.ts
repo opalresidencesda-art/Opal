@@ -3,7 +3,7 @@ import { mapStatus, OPAL_ATLAS_DEFAULT_ZOOM, OPAL_ATLAS_MAX_ZOOM, OPAL_ATLAS_MIN
 import { shouldSetPropertyPosition, shouldZoomMapFromWheel } from "../src/lib/opal-map-gesture";
 
 const emptyProperty: PropertyMapSummary = {
-  id: "property-id", unitCode: "OP 2 - 62", gang: 2, houseNumber: "62", occupancyStatus: null, active: true, accessLinkActive: false,
+  id: "property-id", unitCode: "OP 2 - 62", gang: 2, houseNumber: "62", occupancyStatus: null, imagePath: null, active: true, accessLinkActive: false,
   position: null, profile: null, latestSubmission: null, contributions: [], requests: [],
 };
 

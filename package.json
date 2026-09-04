@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "import:kas": "node scripts/import-kas.mjs",
+    "import:property-images": "node scripts/property-image-import/import-property-images.mjs",
     "import:residents": "node scripts/import-resident-manifest.mjs",
     "test:e2e": "playwright test"
   },
