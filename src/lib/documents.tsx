@@ -90,7 +90,7 @@ function LetterBody({ type, payload }: Pick<IssuedLetter, "type" | "payload">) {
 }
 
 export function OfficialLetterPdf({ type, number, issuedAt, settings, payload }: IssuedLetter) {
-  const introRegion = `${settings.signerTitle} ${settings.rtNumber}, RW ${settings.rwNumber}, Kelurahan ${settings.kelurahan}, Kecamatan ${settings.kecamatan}, Kabupaten ${settings.kabupaten}, ${settings.provinsi}`;
+  const introRegion = `${settings.signerTitle} 003 / RW 015, Kelurahan ${settings.kelurahan}, Kecamatan ${settings.kecamatan}, Kabupaten ${settings.kabupaten}, ${settings.provinsi}`;
   return <Document title={titles[type]} author="OPAL Residence" subject={number}>
     <Page size="A4" style={styles.page}>
       <Text style={[styles.center, styles.title]}>{titles[type]}</Text>
@@ -102,7 +102,7 @@ export function OfficialLetterPdf({ type, number, issuedAt, settings, payload }:
         <Text>{settings.signerTitle}</Text>
         <View style={styles.signatureSpace} />
         <Text style={styles.bold}>{settings.signerName}</Text>
-        <Text>RT {settings.rtNumber} / RW {settings.rwNumber}</Text>
+        <Text>RT 003 / RW 015</Text>
       </View>
       <Text style={styles.footer}>Tanda tangan dan stempel dibubuhkan manual oleh pengurus RT setelah dokumen dicetak.</Text>
     </Page>
